@@ -5,58 +5,79 @@
 [worldserver]
 
 ########################################
-# Challenge Mods Config
+# Challenge Mods Config (Tofu Worldview fork)
 ########################################
 #    ChallengeModes.Enable
 #        Description: Enable challenge modes.
 #            If set to 0, all challenges will be disabled, and the challenge mode selection object will not be present in starting areas.
+#            Requires EnablePlayerSettings = 1 in worldserver.conf (challenges are stored as player settings).
 #        Default:     0 - Disabled
 #                     1 - Enabled
 #
 
 ChallengeModes.Enable = 1
+
+#    ChallengeModes.GroupRestriction
+#        Description: Characters with at least one active challenge other than Progression can only group with other such characters.
+#            Applies to invites, invite accepts, and every other way a character joins a group (playerbots commands, random bot invites).
+#            Battleground and Wintergrasp groups are exempt. The Dungeon Finder is only open to a full party of five such characters.
+#        Default:     1 - Enabled
+#                     0 - Disabled
+#
+
+ChallengeModes.GroupRestriction = 1
+
+#    ChallengeModes.EnforceEquipment
+#        Description: Self Crafted and Green Quality safety net. Items equipped without the normal equip check (playerbots autogear, bot factory gear) are moved to the bags, or mailed when the bags are full.
+#            The same check runs at login and when one of these challenges is taken.
+#        Default:     1 - Enabled
+#                     0 - Disabled
+#
+
+ChallengeModes.EnforceEquipment = 1
+
 #
 #    The following challenge modes are available:
-#        Hardcore - Players who die are permanently ghosts and can never be revived.
-#        SemiHardcore - Players who die lose all worn equipment and carried gold. Cannot be enabled at the same time as Hardcore.
-#        SelfCrafted - Players can only wear equipment that they have crafted.
-#        ItemQualityLevel - Players can only wear equipment that is of Normal or Poor quality
+#        Hardcore - Players who die are permanently dead. Nobody can resurrect them, and they cannot cast the spells in Hardcore.BlockedSpells.
+#        SelfCrafted - Players can only equip items they crafted. Exempt: items needed for a quest, starting weapons and gear, tools (fishing poles and profession tools), shirts, tabards, bags, and SelfCrafted.ExemptItems.
+#        ItemQualityLevel - "Green Quality" in game. Players can only equip items up to ItemQualityLevel.MaxQuality.
+#        OneRate - Players level at x1 XP. mod-individual-xp locks the personal .xp rate while it is active.
+#        QuestXpOnly - "Quest Only" in game. Kills give no XP (the pet keeps its kill XP); all other XP is multiplied by QuestXpOnly.XPMultiplier, or x1 when OneRate is also active. mod-individual-xp locks .xp while it is active.
+#        Progression - Turns on mod-individual-progression for the character. Never ends at a level (DisableLevel 0); it ends when the final raid tier is cleared.
+#        Retired on Tofu Worldview (Enable = 0, kept so existing settings still load):
+#        SemiHardcore - Players who die lose all worn equipment and carried gold.
 #        SlowXpGain - Players receive 0.5x the normal amount of XP.
-#        VerySlowXpGain - Players receive 0.25x the normal amount of XP. Provides all rewards of SlowXpGain as well.
-#        QuestXpOnly - Players can receive XP only from quests
-#        IronManMode - Enforces the Iron Man ruleset (https://wowchallenges.com/challangeinfo/iron-man/)
-#
+#        VerySlowXpGain - Players receive 0.25x the normal amount of XP.
+#        IronMan - Enforces the Iron Man ruleset (https://wowchallenges.com/challangeinfo/iron-man/)
 #
 #    The options for each mode follow the same format. "<Challenge>" is replaced with the name of the challenge, such as Hardcore. The following options are possible:
 #    <Challenge>.Enable = 1
-#        If set to 0, this challenge option will not be selectable at the challenge modes object.
+#        If set to 0, this challenge option will not be selectable at the challenge modes object, and characters that already have it are treated as not having it.
+#    <Challenge>.XPMultiplier = 1
+#        Multiplies XP the player gains if this challenge is enabled.
+#    <Challenge>.DisableLevel = 80
+#        When the player reaches this level, the challenge ends: its restrictions are removed and it is recorded as completed. Rewards for that level are given first.
+#        To never end a challenge at a level, set to 0.
 #    <Challenge>.TitleRewards = ""
-#        Rewards titles for players when reaching the given levels with the challenge enabled.
-#        The IDs used are from CharTitles.dbc. The format is the level followed by the title ID, separated by commas.
-#        Example: <Challenge>.TitleRewards = "60 143, 70 123, 80 145"
-#    <Challenge>.XPMultiplier = ""
-#        Multiplies XP the player gains if this challege is enabled. This is a multiplier values, so bonus are applied multiplicatively.
-#        This reward option is not available for SlowXpGain and VerySlowXpGain
-#        Example: <Challenge>.XPMultiplier = "1.5"
+#        Titles granted on reaching a level. The IDs are from CharTitles.dbc. Format: "level titleId", entries separated by commas. Several titles per level are allowed.
+#        Example: <Challenge>.TitleRewards = "60 143, 80 145"
 #    <Challenge>.TalentRewards = ""
-#        Rewards talent points for players when reaching the given levels with the challenge enabled.
-#        The format is the level followed by the number of talent points given at that level, separated by commas.
-#        Example: <Challenge>.TalentRewards = "30 1, 35 1, 40 1, 45 1, 50 1, 60 2, 70 2, 80 5"
+#        Bonus talent points granted on reaching a level. Format: "level points", entries separated by commas.
+#        Example: <Challenge>.TalentRewards = "80 5"
 #    <Challenge>.ItemRewards = ""
-#        Rewards items for players when reaching the given levels with the challenge enabled.
-#        The IDs used are item entry IDs. The format is the level followed by the item ID, separated by commas.
-#        Example: <Challenge>.ItemRewards = "80 54811"
-#    <Challenge>.DisableLevel = ""
-#        When the player reaches this level, the challenge will be automatically disabled.
-#        To never disable a challenge, set to 0.
-#        Example: <Challenge>.DisableLevel = 80
+#        Items mailed on reaching a level. Format: "level itemId [count]", entries separated by commas. Several items per level are allowed. Without a count, <Challenge>.ItemRewardAmount is used.
+#        Example: <Challenge>.ItemRewards = "80 701001 1, 80 54811"
 #    <Challenge>.ItemRewardAmount = 1
-#        Rewards a set amount of <Challenge>.ItemRewards for players when reaching the given levels with the challenge enabled.
-#        Example: <Challenge>.ItemRewards = 1
+#        Default count for ItemRewards entries that do not give one.
+#    <Challenge>.GoldRewards = ""
+#        Money mailed on reaching a level, in copper (1 gold = 10000 copper). Format: "level copper", entries separated by commas.
+#        Example: <Challenge>.GoldRewards = "80 150000000"
 #    <Challenge>.AchievementReward = ""
-#        Rewards an achievement for players when reaching the given levels with the challenge enabled.
-#        The IDs used are achievement entry IDs. The format is the level followed by the achievement ID, separated by commas.
+#        Achievements granted on reaching a level. Format: "level achievementId", entries separated by commas.
 #        Example: <Challenge>.AchievementReward = "80 1234"
+#
+#    Levels are rewarded even when a level is skipped (for example with a Level-Up Token or a GM command).
+#    Custom titles and custom items need their own DBC rows, database rows, and client patch before their IDs are put here.
 #
 
 Hardcore.Enable = 1
@@ -65,17 +86,16 @@ Hardcore.XPMultiplier = 1
 Hardcore.TalentRewards = ""
 Hardcore.ItemRewards = ""
 Hardcore.ItemRewardAmount = 1
-Hardcore.DisableLevel = 0
+Hardcore.GoldRewards = ""
+Hardcore.DisableLevel = 80
 Hardcore.AchievementReward = ""
 
-SemiHardcore.Enable = 1
-SemiHardcore.TitleRewards = ""
-SemiHardcore.XPMultiplier = 1
-SemiHardcore.TalentRewards = ""
-SemiHardcore.ItemRewards = ""
-SemiHardcore.ItemRewardAmount = 1
-SemiHardcore.DisableLevel = 0
-SemiHardcore.AchievementReward = ""
+#    Hardcore.BlockedSpells
+#        Description: Spell IDs a Hardcore character cannot cast because they kill the caster. Space or comma separated.
+#        Default:     "19752" - Divine Intervention
+#
+
+Hardcore.BlockedSpells = "19752"
 
 SelfCrafted.Enable = 1
 SelfCrafted.TitleRewards = ""
@@ -83,8 +103,16 @@ SelfCrafted.XPMultiplier = 1
 SelfCrafted.TalentRewards = ""
 SelfCrafted.ItemRewards = ""
 SelfCrafted.ItemRewardAmount = 1
-SelfCrafted.DisableLevel = 0
+SelfCrafted.GoldRewards = ""
+SelfCrafted.DisableLevel = 80
 SelfCrafted.AchievementReward = ""
+
+#    SelfCrafted.ExemptItems
+#        Description: Extra item IDs Self Crafted characters may equip, on top of the built-in exemptions. Space or comma separated.
+#        Default:     ""
+#
+
+SelfCrafted.ExemptItems = ""
 
 ItemQualityLevel.Enable = 1
 ItemQualityLevel.TitleRewards = ""
@@ -92,41 +120,84 @@ ItemQualityLevel.XPMultiplier = 1
 ItemQualityLevel.TalentRewards = ""
 ItemQualityLevel.ItemRewards = ""
 ItemQualityLevel.ItemRewardAmount = 1
-ItemQualityLevel.DisableLevel = 0
+ItemQualityLevel.GoldRewards = ""
+ItemQualityLevel.DisableLevel = 80
 ItemQualityLevel.AchievementReward = ""
 
-SlowXpGain.Enable = 1
+#    ItemQualityLevel.MaxQuality
+#        Description: Highest item quality Green Quality characters may equip. Bags and quivers are exempt.
+#        Default:     2 - Uncommon (green)
+#                     1 - Common (white)
+#
+
+ItemQualityLevel.MaxQuality = 2
+
+OneRate.Enable = 1
+OneRate.TitleRewards = ""
+OneRate.XPMultiplier = 1
+OneRate.TalentRewards = ""
+OneRate.ItemRewards = ""
+OneRate.ItemRewardAmount = 1
+OneRate.GoldRewards = ""
+OneRate.DisableLevel = 80
+OneRate.AchievementReward = ""
+
+QuestXpOnly.Enable = 1
+QuestXpOnly.TitleRewards = ""
+QuestXpOnly.XPMultiplier = 2
+QuestXpOnly.TalentRewards = ""
+QuestXpOnly.ItemRewards = ""
+QuestXpOnly.ItemRewardAmount = 1
+QuestXpOnly.GoldRewards = ""
+QuestXpOnly.DisableLevel = 80
+QuestXpOnly.AchievementReward = ""
+
+Progression.Enable = 1
+Progression.TitleRewards = ""
+Progression.XPMultiplier = 1
+Progression.TalentRewards = ""
+Progression.ItemRewards = "80 701001 1"
+Progression.ItemRewardAmount = 1
+Progression.GoldRewards = "80 150000000"
+Progression.DisableLevel = 0
+Progression.AchievementReward = ""
+
+SemiHardcore.Enable = 0
+SemiHardcore.TitleRewards = ""
+SemiHardcore.XPMultiplier = 1
+SemiHardcore.TalentRewards = ""
+SemiHardcore.ItemRewards = ""
+SemiHardcore.ItemRewardAmount = 1
+SemiHardcore.GoldRewards = ""
+SemiHardcore.DisableLevel = 0
+SemiHardcore.AchievementReward = ""
+
+SlowXpGain.Enable = 0
 SlowXpGain.TitleRewards = ""
 SlowXpGain.TalentRewards = ""
 SlowXpGain.ItemRewards = ""
 SlowXpGain.ItemRewardAmount = 1
+SlowXpGain.GoldRewards = ""
 SlowXpGain.DisableLevel = 0
 SlowXpGain.XPMultiplier = 0.50
 SlowXpGain.AchievementReward = ""
 
-VerySlowXpGain.Enable = 1
+VerySlowXpGain.Enable = 0
 VerySlowXpGain.TitleRewards = ""
 VerySlowXpGain.TalentRewards = ""
 VerySlowXpGain.ItemRewards = ""
 VerySlowXpGain.ItemRewardAmount = 1
+VerySlowXpGain.GoldRewards = ""
 VerySlowXpGain.DisableLevel = 0
 VerySlowXpGain.XPMultiplier = 0.25
 VerySlowXpGain.AchievementReward = ""
 
-QuestXpOnly.Enable = 1
-QuestXpOnly.TitleRewards = ""
-QuestXpOnly.XPMultiplier = 1
-QuestXpOnly.TalentRewards = ""
-QuestXpOnly.ItemRewards = ""
-QuestXpOnly.ItemRewardAmount = 1
-QuestXpOnly.DisableLevel = 0
-QuestXpOnly.AchievementReward = ""
-
-IronMan.Enable = 1
+IronMan.Enable = 0
 IronMan.TitleRewards = ""
 IronMan.TalentRewards = ""
 IronMan.ItemRewards = ""
 IronMan.ItemRewardAmount = 1
+IronMan.GoldRewards = ""
 IronMan.DisableLevel = 0
 IronMan.XPMultiplier = 1
 IronMan.AchievementReward = ""
