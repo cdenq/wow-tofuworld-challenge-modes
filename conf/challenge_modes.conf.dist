@@ -83,8 +83,8 @@ ChallengeModes.Master.RewardMail.Body = "You have mastered every challenge this 
 #        Hardcore - Players who die are permanently dead. Nobody can resurrect them, and they cannot cast the spells in Hardcore.BlockedSpells.
 #        SelfCrafted - Players can only equip items they crafted. Exempt: items needed for a quest, starting weapons and gear, tools (fishing poles and profession tools), shirts, tabards, bags, and SelfCrafted.ExemptItems.
 #        ItemQualityLevel - "Green Quality" in game. Players can only equip items up to ItemQualityLevel.MaxQuality.
-#        OneRate - Players level at x1 XP. mod-individual-xp locks the personal .xp rate while it is active.
-#        QuestXpOnly - "Quest Only" in game. Kills give no XP (the pet keeps its kill XP); all other XP is multiplied by QuestXpOnly.XPMultiplier, or x1 when OneRate is also active. mod-individual-xp locks .xp while it is active.
+#        OneRate - mod-individual-xp sets the personal .xp rate to x1 and locks it while this is active.
+#        QuestXpOnly - "Quest Only" in game. Kills give no XP (the pet keeps its kill XP). mod-individual-xp sets the personal rate to x2 (x1 when OneRate is also active) and locks it, which doubles all other XP. QuestXpOnly.XPMultiplier is an extra factor on non-kill XP (1 = none; 2 would make it x4).
 #        Progression - Turns on mod-individual-progression for the character. Never ends at a level (DisableLevel 0); it ends when the final raid tier is cleared.
 #        Retired on Tofu Worldview (Enable = 0, kept so existing settings still load):
 #        SemiHardcore - Players who die lose all worn equipment and carried gold.
@@ -128,6 +128,7 @@ ChallengeModes.Master.RewardMail.Body = "You have mastered every challenge this 
 #        Placeholders: {MODE} (challenge name), {LEVEL}, and {CODES} (body only: for each code the item name, the code, and the TCG vendor NPCs that list the item; empty when the level has no codes).
 #        Write \n for a line break. If the body has no {CODES}, the codes are added at the end, so a code is never left out.
 #
+#    The shrine lists each challenge's rewards from these keys (titles, talent points, gold, items, redemption codes, and achievements, by level) on the second confirmation, so a conf change shows there after a restart or config reload.
 #    Levels are rewarded even when a level is skipped (for example with a Level-Up Token or a GM command).
 #    Custom titles and custom items need their own DBC rows, database rows, and client patch before their IDs are put here.
 #
@@ -208,7 +209,7 @@ OneRate.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE
 
 QuestXpOnly.Enable = 1
 QuestXpOnly.TitleRewards = ""
-QuestXpOnly.XPMultiplier = 2
+QuestXpOnly.XPMultiplier = 1
 QuestXpOnly.TalentRewards = ""
 QuestXpOnly.ItemRewards = ""
 QuestXpOnly.ItemRewardAmount = 1

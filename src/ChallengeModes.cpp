@@ -12,6 +12,7 @@
 #include "Spell.h"
 #include "SpellInfo.h"
 #include "Random.h"
+#include <cctype>
 #include <sstream>
 #include <unordered_map>
 
@@ -882,7 +883,7 @@ private:
         LoadDefinition(SETTING_ITEM_QUALITY_LEVEL, "ItemQualityLevel", "Green Quality", true, 80, 1.0f);
         LoadDefinition(SETTING_SLOW_XP_GAIN, "SlowXpGain", "Slow XP", false, 0, 0.50f);
         LoadDefinition(SETTING_VERY_SLOW_XP_GAIN, "VerySlowXpGain", "Very Slow XP", false, 0, 0.25f);
-        LoadDefinition(SETTING_QUEST_XP_ONLY, "QuestXpOnly", "Quest Only", true, 80, 2.0f);
+        LoadDefinition(SETTING_QUEST_XP_ONLY, "QuestXpOnly", "Quest Only", true, 80, 1.0f);
         LoadDefinition(SETTING_IRON_MAN, "IronMan", "Iron Man", false, 0, 1.0f);
         LoadDefinition(SETTING_ONE_RATE, "OneRate", "One Rate", true, 80, 1.0f);
         LoadDefinition(SETTING_PROGRESSION, "Progression", "Progression", true, 0, 1.0f);
@@ -1120,11 +1121,7 @@ public:
             amount = 0;
             return;
         }
-        // Quests, exploration, battlegrounds, and dungeon finder rewards: x2, or x1 when One Rate is also active
-        if (sChallengeModes->challengeEnabledForPlayer(SETTING_ONE_RATE, player))
-        {
-            return;
-        }
+        // Quests, exploration, battlegrounds, and dungeon finder rewards: the x2 (or x1 with One Rate) is the personal rate that mod-individual-xp sets and locks. QuestXpOnly.XPMultiplier stays available as an extra factor (default 1).
         amount *= sChallengeModes->getXpBonusForChallenge(SETTING_QUEST_XP_ONLY);
     }
 };
@@ -1461,9 +1458,9 @@ private:
             case SETTING_ITEM_QUALITY_LEVEL:
                 return "Green Quality: you can only equip items of green (Uncommon) quality or lower. Ends at level 80.";
             case SETTING_ONE_RATE:
-                return "One Rate: you level at x1 XP, and your personal XP rate (.xp) is locked. Ends at level 80.";
+                return "One Rate: your personal XP rate (.xp) is set to x1 and locked. Ends at level 80.";
             case SETTING_QUEST_XP_ONLY:
-                return "Quest Only: kills give you no XP (your pet still gets its kill XP). Quests, exploration, and other XP are doubled, or x1 if One Rate is also on. Your personal XP rate (.xp) is locked. Ends at level 80.";
+                return "Quest Only: kills give you no XP (your pet still gets its kill XP). Your personal XP rate (.xp) is set to x2 and locked, or stays x1 if One Rate is also on, so quests, exploration, and other XP are doubled. Ends at level 80.";
             case SETTING_PROGRESSION:
                 return "Progression: the world opens up raid tier by raid tier, starting in Classic, and your level cap rises as you clear each tier. Rewards at level 80. Ends when you clear the final raid tier.";
             case SETTING_SEMI_HARDCORE:
@@ -1510,29 +1507,171 @@ public:
         }
     };
 
-    bool OnGossipHello(Player* player, GameObject* go) override
+    // Gossip actions: the challenge index plus a step offset.
+    static constexpr uint32 ACTION_SHOW_REWARDS = 100; // first popup (description) accepted: show the rewards step
+    static constexpr uint32 ACTION_ACCEPT = 200; // second popup (rewards) accepted: take the challenge
+    static constexpr uint32 ACTION_DECLINE = 300;
+
+    static std::string FormatGold(uint32 copper)
     {
-        std::string const list = sChallengeModes->activeChallengeList(player);
-        SendSys(player, list.empty() ? "You have no challenges active." : "Active challenges: " + list + ".");
+        uint32 const gold = copper / 10000;
+        std::string digits = std::to_string(gold);
+        for (int pos = int(digits.size()) - 3; pos > 0; pos -= 3)
+            digits.insert(size_t(pos), ",");
+        std::string text = digits + " gold";
+        if (uint32 silver = (copper % 10000) / 100)
+            text += " " + std::to_string(silver) + " silver";
+        return text;
+    }
+
+    static std::string TitleName(uint32 titleId)
+    {
+        CharTitlesEntry const* entry = sCharTitlesStore.LookupEntry(titleId);
+        if (!entry || !entry->nameMale[0])
+            return "title " + std::to_string(titleId);
+        std::string name = entry->nameMale[0];
+        size_t const pos = name.find("%s");
+        if (pos != std::string::npos)
+            name.erase(pos, 2);
+        while (!name.empty() && (name.front() == ' ' || name.front() == ','))
+            name.erase(0, 1);
+        while (!name.empty() && (name.back() == ' ' || name.back() == ','))
+            name.pop_back();
+        return name;
+    }
+
+    static std::string ItemName(uint32 itemId)
+    {
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
+        return proto ? proto->Name1 : "item " + std::to_string(itemId);
+    }
+
+    static std::string AchievementName(uint32 achievementId)
+    {
+        AchievementEntry const* entry = sAchievementStore.LookupEntry(achievementId);
+        return entry && entry->name[0] ? std::string(entry->name[0]) : "achievement " + std::to_string(achievementId);
+    }
+
+    // "TCG_SPECTRAL_TIGER" -> "Spectral Tiger"
+    static std::string TcgGroupName(std::string key)
+    {
+        for (std::string const& prefix : { std::string("TCG_"), std::string("PROMO_"), std::string("BLIZZCON_"), std::string("WWI_") })
+            if (key.rfind(prefix, 0) == 0)
+            {
+                key = key.substr(prefix.size());
+                break;
+            }
+        std::string name;
+        bool upper = true;
+        for (char c : key)
+        {
+            if (c == '_')
+            {
+                name += ' ';
+                upper = true;
+                continue;
+            }
+            name += upper ? c : char(std::tolower(static_cast<unsigned char>(c)));
+            upper = false;
+        }
+        return name;
+    }
+
+    // The reward list, built from the live conf, one line per level.
+    static std::string DescribeRewards(ChallengeModeSettings setting)
+    {
+        ChallengeDefinition const* def = sChallengeModes->getDefinition(setting);
+        if (!def)
+            return "";
+        std::map<uint8, std::vector<std::string>> byLevel;
+        for (auto const& [level, titles] : def->titleRewards)
+            for (uint32 titleId : titles)
+                byLevel[level].push_back("the title " + TitleName(titleId));
+        for (auto const& [level, points] : def->talentRewards)
+            if (points)
+                byLevel[level].push_back(std::to_string(points) + (points == 1 ? " bonus talent point" : " bonus talent points"));
+        for (auto const& [level, gold] : def->goldRewards)
+            if (gold)
+                byLevel[level].push_back(FormatGold(gold));
+        for (auto const& [level, items] : def->itemRewards)
+            for (ChallengeItemReward const& reward : items)
+                byLevel[level].push_back(ItemName(reward.itemId) + (reward.count > 1 ? " x" + std::to_string(reward.count) : ""));
+        for (auto const& [level, groups] : def->tcgCodeRewards)
+            for (std::string const& group : groups)
+                byLevel[level].push_back("a redemption code for " + TcgGroupName(group));
+        for (auto const& [level, achievements] : def->achievementRewards)
+            for (uint32 achievementId : achievements)
+                byLevel[level].push_back("the achievement " + AchievementName(achievementId));
+
+        std::string text = sChallengeModes->getDisplayName(setting) + " rewards:";
+        if (byLevel.empty())
+            return text + "\nNo rewards are set for this challenge yet.";
+        for (auto const& [level, rewards] : byLevel)
+        {
+            text += "\nLevel " + std::to_string(level) + ": ";
+            for (size_t i = 0; i < rewards.size(); ++i)
+                text += (i ? (i + 1 == rewards.size() ? (rewards.size() > 2 ? ", and " : " and ") : ", ") : "") + rewards[i];
+            text += ".";
+        }
+        text += "\nGold and items arrive by mail.";
+        return text;
+    }
+
+    static void ShowChallengeList(Player* player, ObjectGuid guid)
+    {
+        ClearGossipMenuFor(player);
         for (ChallengeModeSettings setting : ALL_CHALLENGES)
         {
             if (!Offerable(player, setting))
                 continue;
-            std::string popup = Describe(setting) + "\n\nThis cannot be undone.";
+            std::string popup = Describe(setting);
             if (setting != SETTING_PROGRESSION)
-                popup += " While it is active you can only group with other challenge characters.";
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable " + sChallengeModes->getDisplayName(setting), 0, setting, popup, 0, false);
+                popup += "\n\nWhile it is active you can only group with other challenge characters.";
+            popup += "\n\nAccept to see the rewards. Nothing is taken yet.";
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, sChallengeModes->getDisplayName(setting), 0, ACTION_SHOW_REWARDS + setting, popup, 0, false);
         }
-        SendGossipMenuFor(player, 12669, go->GetGUID());
+        SendGossipMenuFor(player, 12669, guid);
+    }
+
+    static void ShowRewardsStep(Player* player, ObjectGuid guid, ChallengeModeSettings setting)
+    {
+        ClearGossipMenuFor(player);
+        std::string const name = sChallengeModes->getDisplayName(setting);
+        std::string const popup = DescribeRewards(setting) + "\n\nAccept the " + name + " challenge? This cannot be undone.";
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Accept " + name, 0, ACTION_ACCEPT + setting, popup, 0, false);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Decline", 0, ACTION_DECLINE, "", 0, false);
+        SendGossipMenuFor(player, 12669, guid);
+    }
+
+    bool OnGossipHello(Player* player, GameObject* go) override
+    {
+        std::string const list = sChallengeModes->activeChallengeList(player);
+        SendSys(player, list.empty() ? "You have no challenges active." : "Active challenges: " + list + ".");
+        ShowChallengeList(player, go->GetGUID());
         return true;
     }
 
-    bool OnGossipSelect(Player* player, GameObject* /*go*/, uint32 /*sender*/, uint32 action) override
+    bool OnGossipSelect(Player* player, GameObject* go, uint32 /*sender*/, uint32 action) override
     {
-        CloseGossipMenuFor(player);
-        if (!IsChallengeIndex(uint8(action)) || !Offerable(player, ChallengeModeSettings(action)))
+        if (action >= ACTION_SHOW_REWARDS && action < ACTION_ACCEPT)
+        {
+            uint32 const index = action - ACTION_SHOW_REWARDS;
+            if (IsChallengeIndex(uint8(index)) && Offerable(player, ChallengeModeSettings(index)))
+            {
+                ShowRewardsStep(player, go->GetGUID(), ChallengeModeSettings(index));
+                return true;
+            }
+            CloseGossipMenuFor(player);
             return true;
-        ChallengeModeSettings const setting = ChallengeModeSettings(action);
+        }
+
+        CloseGossipMenuFor(player);
+        if (action < ACTION_ACCEPT || action >= ACTION_DECLINE)
+            return true; // Decline, or an unknown action
+        uint32 const index = action - ACTION_ACCEPT;
+        if (!IsChallengeIndex(uint8(index)) || !Offerable(player, ChallengeModeSettings(index)))
+            return true;
+        ChallengeModeSettings const setting = ChallengeModeSettings(index);
 
         // Taking a restricting challenge while grouped with unrestricted characters would break the grouping rule
         if (setting != SETTING_PROGRESSION && sChallengeModes->groupRestriction && !sChallengeModes->hasRestrictingChallenge(player))
@@ -1561,6 +1700,11 @@ public:
         }
 
         SendSys(player, "Challenge enabled: " + sChallengeModes->getDisplayName(setting) + ".");
+        // mod-individual-xp sets the rate itself at the next XP gain or login; this tells the player now
+        if (setting == SETTING_ONE_RATE)
+            SendSys(player, sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player) ? "Your XP rate is now locked at x1 by your One Rate and Quest Only challenges until level 80." : "Your XP rate is now locked at x1 by your One Rate challenge until level 80.");
+        else if (setting == SETTING_QUEST_XP_ONLY)
+            SendSys(player, sChallengeModes->challengeEnabledForPlayer(SETTING_ONE_RATE, player) ? "Your XP rate stays locked at x1 by your One Rate and Quest Only challenges until level 80. Kills give no XP." : "Your XP rate is now locked at x2 by your Quest Only challenge until level 80. Kills give no XP.");
         if ((setting == SETTING_SELF_CRAFTED || setting == SETTING_ITEM_QUALITY_LEVEL) && sChallengeModes->enforceEquipmentEnabled)
             sChallengeModes->scheduleEquipmentCheck(player);
         return true;
