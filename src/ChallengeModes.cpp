@@ -11,7 +11,13 @@
 #include "ObjectMgr.h"
 #include "Spell.h"
 #include "SpellInfo.h"
+#include "Random.h"
 #include <sstream>
+
+#if __has_include("RandomPlayerbotMgr.h")
+#include "RandomPlayerbotMgr.h"
+#define TOFU_HAS_PLAYERBOTS 1
+#endif
 
 #if __has_include("IndividualProgression.h")
 #include "IndividualProgression.h"
@@ -40,6 +46,89 @@ namespace
     bool IsChallengeIndex(uint8 index)
     {
         return index < CHALLENGE_MODE_COUNT && index != HARDCORE_DEAD;
+    }
+
+    // reward_group keys of mod-tcg-vendors (REWARD_GROUPS in src/mod_tcg_vendors.cpp at lightninjay/mod-tcg-vendors b24b511). Used only to warn at startup; an unlisted key is still issued, since a newer mod-tcg-vendors may add keys.
+    std::unordered_set<std::string> const KNOWN_TCG_GROUPS =
+    {
+        "TCG_TABARD_OF_FLAME", "TCG_HIPPOGRYPH_HATCHLING", "TCG_RIDING_TURTLE", "TCG_PICNIC_BASKET", "TCG_BANANA_CHARM", "TCG_IMP_IN_A_BALL",
+        "TCG_GOBLIN_GUMBO_KETTLE", "TCG_FISHING_CHAIR", "TCG_SPECTRAL_TIGER", "TCG_PAPER_FLYING_MACHINE", "TCG_ROCKET_CHICKEN", "TCG_DRAGON_KITE",
+        "TCG_X51_NETHER_ROCKET", "TCG_PET_BISCUIT", "TCG_GOBLIN_WEATHER_MACHINE", "TCG_PATH_OF_ILLIDAN", "TCG_DISCO", "TCG_SOUL_TRADER_BEACON",
+        "TCG_PARTY_GRENADE", "TCG_FLAG_OF_OWNERSHIP", "TCG_BIG_BATTLE_BEAR", "TCG_SANDBOX_TIGER", "TCG_EPIC_PURPLE_SHIRT", "TCG_FOAM_SWORD_RACK",
+        "TCG_PATH_OF_CENARIUS", "TCG_OGRE_PINATA", "TCG_MAGIC_ROOSTER_EGG", "TCG_SCOURGEWAR_MINIMOUNT", "TCG_TUSKARR_KITE", "TCG_SPECTRAL_TIGER_CUB",
+        "TCG_LANDROS_GIFT_BOX", "TCG_INSTANT_STATUE_PEDESTAL", "TCG_BLAZING_HIPPOGRYPH", "TCG_PAINT_BOMB", "TCG_ETHEREAL_PORTAL", "TCG_WOOLY_WHITE_RHINO",
+        "TCG_TABARD_OF_FROST", "TCG_PERPETUAL_PURPLE_FIREWORK", "TCG_CARVED_OGRE_IDOL", "TCG_TABARD_OF_THE_ARCANE", "TCG_TABARD_OF_BRILLIANCE", "TCG_TABARD_OF_THE_DEFENDER",
+        "TCG_TABARD_OF_FURY", "TCG_TABARD_OF_NATURE", "TCG_TABARD_OF_THE_VOID", "TCG_LANDROS_PET_BOX", "BLIZZCON_MURKY", "BLIZZCON_MURLOC_COSTUME",
+        "BLIZZCON_BIG_BLIZZARD_BEAR", "PROMO_GURKY", "PROMO_ORANGE_MURLOC_EGG", "PROMO_WHITE_MURLOC_EGG", "PROMO_HEAVY_MURLOC_EGG", "PROMO_MURKIMUS_SPEAR",
+        "PROMO_ZERGLING_LEASH", "PROMO_PANDA_COLLAR", "PROMO_DIABLO_STONE", "PROMO_NETHERWHELP", "PROMO_FROSTYS_COLLAR", "WWI_TYRAELS_HILT",
+        "PROMO_WARBOT_KEY", "PROMO_ENCHANTED_ONYX", "PROMO_CORE_HOUND_PUP", "PROMO_GRYPHON_HATCHLING", "PROMO_WIND_RIDER_CUB", "PROMO_PANDAREN_MONK",
+        "PROMO_LIL_PHYLACTERY", "PROMO_LIL_XT", "PROMO_MINI_THOR", "PROMO_ONYXIAN_WHELPLING"
+    };
+
+    // Same alphabet and layout as mod-tcg-vendors' GenerateRandomCode: 16 characters without I, L, O, 0, and 1, shown as XXXX-XXXX-XXXX-XXXX.
+    std::string GenerateTcgCode()
+    {
+        static char const alphabet[] = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+        std::string code;
+        code.reserve(19);
+        for (uint8 i = 0; i < 16; ++i)
+        {
+            if (i && i % 4 == 0)
+                code += '-';
+            code += alphabet[urand(0, sizeof(alphabet) - 2)];
+        }
+        return code;
+    }
+
+    // Upper-case letters, digits, and underscores only, so the key is safe inside the INSERT text.
+    bool IsValidTcgGroupKey(std::string const& key)
+    {
+        if (key.empty() || key.size() > 64)
+            return false;
+        for (char c : key)
+            if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
+                return false;
+        return true;
+    }
+
+    // Letters, digits, and underscores only, so the table name is safe inside the SQL text.
+    bool IsValidTableName(std::string const& name)
+    {
+        if (name.empty() || name.size() > 64)
+            return false;
+        for (char c : name)
+            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'))
+                return false;
+        return true;
+    }
+
+    void ReplaceAll(std::string& text, std::string const& from, std::string const& to)
+    {
+        if (from.empty())
+            return;
+        size_t pos = 0;
+        while ((pos = text.find(from, pos)) != std::string::npos)
+        {
+            text.replace(pos, from.size(), to);
+            pos += to.size();
+        }
+    }
+
+    // Conf strings cannot hold a line break, so "\n" written in the conf becomes one.
+    std::string ExpandLineBreaks(std::string text)
+    {
+        ReplaceAll(text, "\\n", "\n");
+        return text;
+    }
+
+    // Player-made characters, altbots included. Random bots and addclass bots are not player-made.
+    bool IsPlayerMadeCharacter(Player* player)
+    {
+#ifdef TOFU_HAS_PLAYERBOTS
+        if (sRandomPlayerbotMgr.IsRandomBot(player) || sRandomPlayerbotMgr.IsAddclassBot(player))
+            return false;
+#endif
+        return player != nullptr;
     }
 }
 
@@ -299,13 +388,98 @@ void ChallengeModes::grantLevelRewards(Player* player, ChallengeModeSettings set
         SendSys(player, def->displayName + " reward: item(s) sent to your mailbox.");
     }
 
-    if (auto it = def->goldRewards.find(level); it != def->goldRewards.end() && it->second)
+    // One reward mail per challenge and level: the gold is attached and the redemption codes are in the body text.
+    uint32 gold = 0;
+    if (auto it = def->goldRewards.find(level); it != def->goldRewards.end())
+        gold = it->second;
+
+    std::vector<std::pair<std::string, std::string>> codes; // reward_group, code
+    if (auto it = def->tcgCodeRewards.find(level); it != def->tcgCodeRewards.end() && !it->second.empty())
     {
-        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-        MailDraft(def->displayName + " reward", "Congratulations on reaching level " + std::to_string(level) + " on the " + def->displayName + " challenge.").AddMoney(it->second).SendMailTo(trans, MailReceiver(player), MailSender(player, MAIL_STATIONERY_GM));
-        CharacterDatabase.CommitTransaction(trans);
-        SendSys(player, def->displayName + " reward: " + std::to_string(it->second / 10000) + " gold sent to your mailbox.");
+        if (!tcgCodesActive())
+            LOG_ERROR("module", "mod-challenge-modes: {} has TCG code rewards at level {}, but TCG codes are off (ChallengeModes.TcgCodes.Enable = 0, or the table was not found at startup). No code was issued to {}.", def->confName, level, player->GetName());
+        else if (!IsPlayerMadeCharacter(player))
+            LOG_INFO("module", "mod-challenge-modes: {} is a random or addclass bot, so no TCG code was issued for {} level {}.", player->GetName(), def->confName, level);
+        else
+            for (std::string const& group : it->second)
+                codes.emplace_back(group, GenerateTcgCode());
     }
+
+    if (!gold && codes.empty())
+        return;
+
+    std::string const levelText = std::to_string(level);
+    std::string subject = def->rewardMailSubject;
+    ReplaceAll(subject, "{MODE}", def->displayName);
+    ReplaceAll(subject, "{LEVEL}", levelText);
+
+    std::string codeText;
+    if (!codes.empty())
+    {
+        codeText = codes.size() == 1 ? "\n\nYour redemption code:" : "\n\nYour redemption codes:";
+        for (auto const& [group, code] : codes)
+            codeText += "\n" + code;
+        codeText += "\n\nRedeem at a TCG vendor. Each code works once.";
+    }
+
+    std::string body = def->rewardMailBody;
+    ReplaceAll(body, "{MODE}", def->displayName);
+    ReplaceAll(body, "{LEVEL}", levelText);
+    if (body.find("{CODES}") != std::string::npos)
+        ReplaceAll(body, "{CODES}", codeText);
+    else
+        body += codeText; // a code is never dropped because the body lost its placeholder
+
+    // The codes and the mail are saved in one transaction: either the player gets the mail and every code in it exists, or neither happens.
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    for (auto const& [group, code] : codes)
+        trans->Append("INSERT INTO `{}` (code, reward_group, redeemed, account_id, character_guid, redeemed_date) VALUES ('{}', '{}', 0, NULL, NULL, NULL)", tcgCodesTable, code, group);
+    MailDraft draft(subject, body);
+    if (gold)
+        draft.AddMoney(gold);
+    draft.SendMailTo(trans, MailReceiver(player), MailSender(player, MAIL_STATIONERY_GM));
+    CharacterDatabase.CommitTransaction(trans);
+
+    for (auto const& [group, code] : codes)
+        LOG_INFO("module", "mod-challenge-modes: issued TCG code {} ({}) to {} (guid {}, account {}) for {} level {}.", code, group, player->GetName(), player->GetGUID().GetCounter(), player->GetSession() ? player->GetSession()->GetAccountId() : 0, def->confName, level);
+
+    if (gold && !codes.empty())
+        SendSys(player, def->displayName + " reward: " + std::to_string(gold / 10000) + " gold and " + std::to_string(codes.size()) + " redemption code(s) sent to your mailbox.");
+    else if (gold)
+        SendSys(player, def->displayName + " reward: " + std::to_string(gold / 10000) + " gold sent to your mailbox.");
+    else
+        SendSys(player, def->displayName + " reward: " + std::to_string(codes.size()) + " redemption code(s) sent to your mailbox.");
+}
+
+void ChallengeModes::checkTcgCodesTable()
+{
+    tcgCodesAvailable = false;
+    if (!tcgCodesConfigured)
+        return;
+
+    if (!IsValidTableName(tcgCodesTable))
+    {
+        LOG_ERROR("module", "mod-challenge-modes: ChallengeModes.TcgCodes.Table \"{}\" is not a valid table name. TCG code rewards are off.", tcgCodesTable);
+        return;
+    }
+
+    if (!CharacterDatabase.Query("SHOW TABLES LIKE '{}'", tcgCodesTable))
+    {
+        LOG_ERROR("module", "mod-challenge-modes: table {} was not found in the characters database (is mod-tcg-vendors installed?). TCG code rewards are off until the next start.", tcgCodesTable);
+        return;
+    }
+
+    tcgCodesAvailable = true;
+    LOG_INFO("module", "mod-challenge-modes: TCG code rewards are on (table {}).", tcgCodesTable);
+}
+
+void ChallengeModes::validateTcgCodeRewards() const
+{
+    for (ChallengeDefinition const& def : definitions)
+        for (auto const& [level, groups] : def.tcgCodeRewards)
+            for (std::string const& group : groups)
+                if (!KNOWN_TCG_GROUPS.count(group))
+                    LOG_WARN("module", "mod-challenge-modes: {}.TcgCodeRewards level {} uses reward_group {}, which mod-tcg-vendors b24b511 does not define. Codes are still issued, but the vendor rejects them unless the key exists (check with: python tools/generate_codes.py --list-groups).", def.confName, level, group);
 }
 
 void ChallengeModes::buildStartupData()
@@ -368,14 +542,19 @@ public:
         : WorldScript("ChallengeModes_WorldScript")
     {}
 
-    void OnBeforeConfigLoad(bool /*reload*/) override
+    void OnBeforeConfigLoad(bool reload) override
     {
         LoadConfig();
+        // The table can only appear with a build and restart, so a reload keeps the startup result and only re-checks the keys.
+        if (reload)
+            sChallengeModes->validateTcgCodeRewards();
     }
 
     void OnStartup() override
     {
         sChallengeModes->buildStartupData();
+        sChallengeModes->checkTcgCodesTable();
+        sChallengeModes->validateTcgCodeRewards();
     }
 
 private:
@@ -431,6 +610,23 @@ private:
         }
     }
 
+    static void LoadTcgCodes(std::map<uint8, std::vector<std::string>>& target, std::string const& configString, std::string const& confName)
+    {
+        target.clear();
+        for (auto const& tokens : SplitEntries(configString))
+        {
+            if (tokens.size() < 2)
+                continue;
+            uint8 level = uint8(ToUInt(tokens[0]));
+            if (!level || !IsValidTcgGroupKey(tokens[1]))
+            {
+                LOG_ERROR("module", "mod-challenge-modes: skipped {}.TcgCodeRewards entry \"{} {}\": the format is \"level REWARD_GROUP\" with a key of A-Z, 0-9, and _.", confName, tokens[0], tokens[1]);
+                continue;
+            }
+            target[level].push_back(tokens[1]);
+        }
+    }
+
     static void LoadIdSet(std::unordered_set<uint32>& target, std::string const& configString)
     {
         target.clear();
@@ -459,6 +655,9 @@ private:
         LoadItems(def.itemRewards, sConfigMgr->GetOption<std::string>(confName + ".ItemRewards", ""), def.itemRewardAmount);
         LoadLevelValue(def.goldRewards, sConfigMgr->GetOption<std::string>(confName + ".GoldRewards", ""));
         LoadLevelList(def.achievementRewards, sConfigMgr->GetOption<std::string>(confName + ".AchievementReward", ""));
+        LoadTcgCodes(def.tcgCodeRewards, sConfigMgr->GetOption<std::string>(confName + ".TcgCodeRewards", ""), confName);
+        def.rewardMailSubject = ExpandLineBreaks(sConfigMgr->GetOption<std::string>(confName + ".RewardMail.Subject", "{MODE} reward"));
+        def.rewardMailBody = ExpandLineBreaks(sConfigMgr->GetOption<std::string>(confName + ".RewardMail.Body", "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"));
     }
 
     static void LoadConfig()
@@ -470,6 +669,8 @@ private:
         sChallengeModes->groupRestriction = sConfigMgr->GetOption<bool>("ChallengeModes.GroupRestriction", true);
         sChallengeModes->enforceEquipmentEnabled = sConfigMgr->GetOption<bool>("ChallengeModes.EnforceEquipment", true);
         sChallengeModes->itemQualityMax = sConfigMgr->GetOption<uint32>("ItemQualityLevel.MaxQuality", ITEM_QUALITY_UNCOMMON);
+        sChallengeModes->tcgCodesConfigured = sConfigMgr->GetOption<bool>("ChallengeModes.TcgCodes.Enable", false);
+        sChallengeModes->tcgCodesTable = sConfigMgr->GetOption<std::string>("ChallengeModes.TcgCodes.Table", "account_tcg_codes");
 
         LoadDefinition(SETTING_HARDCORE, "Hardcore", "Hardcore", true, 80, 1.0f);
         LoadDefinition(SETTING_SEMI_HARDCORE, "SemiHardcore", "Semi-Hardcore", false, 0, 1.0f);

@@ -36,6 +36,25 @@ ChallengeModes.GroupRestriction = 1
 
 ChallengeModes.EnforceEquipment = 1
 
+#    ChallengeModes.TcgCodes.Enable
+#        Description: Issue mod-tcg-vendors redemption codes as level rewards (<Challenge>.TcgCodeRewards).
+#            Each code is written to the codes table and put in the body of the challenge's reward mail, in the same database transaction.
+#            Codes go to player-made characters only (altbots included), never to random bots or addclass bots.
+#            Needs mod-tcg-vendors in the build: at startup the table below must exist in the characters database, or codes stay off until the next start (logged as an error).
+#            Every issued code is logged to Server.log with the character, account, challenge, and level.
+#        Default:     0 - Disabled
+#                     1 - Enabled
+#
+
+ChallengeModes.TcgCodes.Enable = 0
+
+#    ChallengeModes.TcgCodes.Table
+#        Description: Name of mod-tcg-vendors' codes table in the characters database. Letters, digits, and underscores only. Read at startup only.
+#        Default:     "account_tcg_codes"
+#
+
+ChallengeModes.TcgCodes.Table = "account_tcg_codes"
+
 #
 #    The following challenge modes are available:
 #        Hardcore - Players who die are permanently dead. Nobody can resurrect them, and they cannot cast the spells in Hardcore.BlockedSpells.
@@ -76,6 +95,17 @@ ChallengeModes.EnforceEquipment = 1
 #        Achievements granted on reaching a level. Format: "level achievementId", entries separated by commas.
 #        Example: <Challenge>.AchievementReward = "80 1234"
 #
+#    <Challenge>.TcgCodeRewards = ""
+#        mod-tcg-vendors redemption codes issued on reaching a level, one code per entry. Needs ChallengeModes.TcgCodes.Enable = 1. Format: "level REWARD_GROUP", entries separated by commas. Several codes per level are allowed.
+#        REWARD_GROUP is a key from mod-tcg-vendors (list them with: python tools/generate_codes.py --list-groups). A key unknown to this module is logged as a warning at startup but still issued.
+#        Example: <Challenge>.TcgCodeRewards = "80 TCG_SPECTRAL_TIGER"
+#    <Challenge>.RewardMail.Subject = "{MODE} reward"
+#    <Challenge>.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+#        The mail sent for a level that has GoldRewards or TcgCodeRewards: one mail per challenge and level, with the gold attached and the codes in the body.
+#        Placeholders: {MODE} (challenge name), {LEVEL}, and {CODES} (body only: a blank line, then the code or codes, one per line, and how to redeem them; empty when the level has no codes).
+#        Write \n for a line break. If the body has no {CODES}, the codes are added at the end, so a code is never left out.
+#        Item rewards (ItemRewards) still arrive in their own mail.
+#
 #    Levels are rewarded even when a level is skipped (for example with a Level-Up Token or a GM command).
 #    Custom titles and custom items need their own DBC rows, database rows, and client patch before their IDs are put here.
 #
@@ -89,6 +119,9 @@ Hardcore.ItemRewardAmount = 1
 Hardcore.GoldRewards = ""
 Hardcore.DisableLevel = 80
 Hardcore.AchievementReward = ""
+Hardcore.TcgCodeRewards = ""
+Hardcore.RewardMail.Subject = "{MODE} reward"
+Hardcore.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 #    Hardcore.BlockedSpells
 #        Description: Spell IDs a Hardcore character cannot cast because they kill the caster. Space or comma separated.
@@ -106,6 +139,9 @@ SelfCrafted.ItemRewardAmount = 1
 SelfCrafted.GoldRewards = ""
 SelfCrafted.DisableLevel = 80
 SelfCrafted.AchievementReward = ""
+SelfCrafted.TcgCodeRewards = ""
+SelfCrafted.RewardMail.Subject = "{MODE} reward"
+SelfCrafted.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 #    SelfCrafted.ExemptItems
 #        Description: Extra item IDs Self Crafted characters may equip, on top of the built-in exemptions. Space or comma separated.
@@ -123,6 +159,9 @@ ItemQualityLevel.ItemRewardAmount = 1
 ItemQualityLevel.GoldRewards = ""
 ItemQualityLevel.DisableLevel = 80
 ItemQualityLevel.AchievementReward = ""
+ItemQualityLevel.TcgCodeRewards = ""
+ItemQualityLevel.RewardMail.Subject = "{MODE} reward"
+ItemQualityLevel.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 #    ItemQualityLevel.MaxQuality
 #        Description: Highest item quality Green Quality characters may equip. Bags and quivers are exempt.
@@ -141,6 +180,9 @@ OneRate.ItemRewardAmount = 1
 OneRate.GoldRewards = ""
 OneRate.DisableLevel = 80
 OneRate.AchievementReward = ""
+OneRate.TcgCodeRewards = ""
+OneRate.RewardMail.Subject = "{MODE} reward"
+OneRate.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 QuestXpOnly.Enable = 1
 QuestXpOnly.TitleRewards = ""
@@ -151,6 +193,9 @@ QuestXpOnly.ItemRewardAmount = 1
 QuestXpOnly.GoldRewards = ""
 QuestXpOnly.DisableLevel = 80
 QuestXpOnly.AchievementReward = ""
+QuestXpOnly.TcgCodeRewards = ""
+QuestXpOnly.RewardMail.Subject = "{MODE} reward"
+QuestXpOnly.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 Progression.Enable = 1
 Progression.TitleRewards = ""
@@ -161,6 +206,9 @@ Progression.ItemRewardAmount = 1
 Progression.GoldRewards = "80 150000000"
 Progression.DisableLevel = 0
 Progression.AchievementReward = ""
+Progression.TcgCodeRewards = ""
+Progression.RewardMail.Subject = "{MODE} reward"
+Progression.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 SemiHardcore.Enable = 0
 SemiHardcore.TitleRewards = ""
@@ -171,6 +219,9 @@ SemiHardcore.ItemRewardAmount = 1
 SemiHardcore.GoldRewards = ""
 SemiHardcore.DisableLevel = 0
 SemiHardcore.AchievementReward = ""
+SemiHardcore.TcgCodeRewards = ""
+SemiHardcore.RewardMail.Subject = "{MODE} reward"
+SemiHardcore.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 SlowXpGain.Enable = 0
 SlowXpGain.TitleRewards = ""
@@ -181,6 +232,9 @@ SlowXpGain.GoldRewards = ""
 SlowXpGain.DisableLevel = 0
 SlowXpGain.XPMultiplier = 0.50
 SlowXpGain.AchievementReward = ""
+SlowXpGain.TcgCodeRewards = ""
+SlowXpGain.RewardMail.Subject = "{MODE} reward"
+SlowXpGain.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 VerySlowXpGain.Enable = 0
 VerySlowXpGain.TitleRewards = ""
@@ -191,6 +245,9 @@ VerySlowXpGain.GoldRewards = ""
 VerySlowXpGain.DisableLevel = 0
 VerySlowXpGain.XPMultiplier = 0.25
 VerySlowXpGain.AchievementReward = ""
+VerySlowXpGain.TcgCodeRewards = ""
+VerySlowXpGain.RewardMail.Subject = "{MODE} reward"
+VerySlowXpGain.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
 
 IronMan.Enable = 0
 IronMan.TitleRewards = ""
@@ -201,3 +258,6 @@ IronMan.GoldRewards = ""
 IronMan.DisableLevel = 0
 IronMan.XPMultiplier = 1
 IronMan.AchievementReward = ""
+IronMan.TcgCodeRewards = ""
+IronMan.RewardMail.Subject = "{MODE} reward"
+IronMan.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"

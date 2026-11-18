@@ -64,6 +64,9 @@ struct ChallengeDefinition
     std::map<uint8, std::vector<ChallengeItemReward>> itemRewards;
     std::map<uint8, uint32> goldRewards;
     std::map<uint8, std::vector<uint32>> achievementRewards;
+    std::map<uint8, std::vector<std::string>> tcgCodeRewards; // mod-tcg-vendors reward_group keys, one code each
+    std::string rewardMailSubject; // placeholders {MODE} and {LEVEL}
+    std::string rewardMailBody; // placeholders {MODE}, {LEVEL}, and {CODES}
 };
 
 class ChallengeModes
@@ -75,6 +78,9 @@ public:
     bool groupRestriction = true;
     bool enforceEquipmentEnabled = true;
     uint32 itemQualityMax = ITEM_QUALITY_UNCOMMON;
+    bool tcgCodesConfigured = false; // ChallengeModes.TcgCodes.Enable
+    bool tcgCodesAvailable = false; // the codes table was found at startup
+    std::string tcgCodesTable = "account_tcg_codes";
     std::array<ChallengeDefinition, CHALLENGE_MODE_COUNT> definitions;
     std::unordered_set<uint32> hardcoreBlockedSpells;
     std::unordered_set<uint32> selfCraftedExtraExemptItems;
@@ -102,6 +108,9 @@ public:
     void markCompleted(Player* player, ChallengeModeSettings setting) const;
     void grantLevelRewards(Player* player, ChallengeModeSettings setting, uint8 level) const;
     void buildStartupData();
+    [[nodiscard]] bool tcgCodesActive() const { return tcgCodesConfigured && tcgCodesAvailable; }
+    void checkTcgCodesTable(); // startup only: looks for the codes table in the characters database
+    void validateTcgCodeRewards() const; // startup and config reload: logs malformed or unknown reward_group keys
 };
 
 #define sChallengeModes ChallengeModes::instance()
