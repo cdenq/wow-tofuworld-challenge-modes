@@ -13,6 +13,7 @@
 #include "SpellInfo.h"
 #include "Random.h"
 #include <sstream>
+#include <unordered_map>
 
 #if __has_include("RandomPlayerbotMgr.h")
 #include "RandomPlayerbotMgr.h"
@@ -48,21 +49,85 @@ namespace
         return index < CHALLENGE_MODE_COUNT && index != HARDCORE_DEAD;
     }
 
-    // reward_group keys of mod-tcg-vendors (REWARD_GROUPS in src/mod_tcg_vendors.cpp at lightninjay/mod-tcg-vendors b24b511). Used only to warn at startup; an unlisted key is still issued, since a newer mod-tcg-vendors may add keys.
-    std::unordered_set<std::string> const KNOWN_TCG_GROUPS =
+    // reward_group keys of mod-tcg-vendors (REWARD_GROUPS and the vendor catalogs in src/mod_tcg_vendors.cpp at lightninjay/mod-tcg-vendors b24b511): the item name and the NPCs whose menu lists it, for the reward mail. An unlisted key is still issued (a newer mod-tcg-vendors may add keys) and its mail names any TCG vendor. In TCGVendors.Mode 2 every TCG vendor accepts every code; the named NPC is the one that sells the item in the browse menus.
+    struct TcgRewardInfo
     {
-        "TCG_TABARD_OF_FLAME", "TCG_HIPPOGRYPH_HATCHLING", "TCG_RIDING_TURTLE", "TCG_PICNIC_BASKET", "TCG_BANANA_CHARM", "TCG_IMP_IN_A_BALL",
-        "TCG_GOBLIN_GUMBO_KETTLE", "TCG_FISHING_CHAIR", "TCG_SPECTRAL_TIGER", "TCG_PAPER_FLYING_MACHINE", "TCG_ROCKET_CHICKEN", "TCG_DRAGON_KITE",
-        "TCG_X51_NETHER_ROCKET", "TCG_PET_BISCUIT", "TCG_GOBLIN_WEATHER_MACHINE", "TCG_PATH_OF_ILLIDAN", "TCG_DISCO", "TCG_SOUL_TRADER_BEACON",
-        "TCG_PARTY_GRENADE", "TCG_FLAG_OF_OWNERSHIP", "TCG_BIG_BATTLE_BEAR", "TCG_SANDBOX_TIGER", "TCG_EPIC_PURPLE_SHIRT", "TCG_FOAM_SWORD_RACK",
-        "TCG_PATH_OF_CENARIUS", "TCG_OGRE_PINATA", "TCG_MAGIC_ROOSTER_EGG", "TCG_SCOURGEWAR_MINIMOUNT", "TCG_TUSKARR_KITE", "TCG_SPECTRAL_TIGER_CUB",
-        "TCG_LANDROS_GIFT_BOX", "TCG_INSTANT_STATUE_PEDESTAL", "TCG_BLAZING_HIPPOGRYPH", "TCG_PAINT_BOMB", "TCG_ETHEREAL_PORTAL", "TCG_WOOLY_WHITE_RHINO",
-        "TCG_TABARD_OF_FROST", "TCG_PERPETUAL_PURPLE_FIREWORK", "TCG_CARVED_OGRE_IDOL", "TCG_TABARD_OF_THE_ARCANE", "TCG_TABARD_OF_BRILLIANCE", "TCG_TABARD_OF_THE_DEFENDER",
-        "TCG_TABARD_OF_FURY", "TCG_TABARD_OF_NATURE", "TCG_TABARD_OF_THE_VOID", "TCG_LANDROS_PET_BOX", "BLIZZCON_MURKY", "BLIZZCON_MURLOC_COSTUME",
-        "BLIZZCON_BIG_BLIZZARD_BEAR", "PROMO_GURKY", "PROMO_ORANGE_MURLOC_EGG", "PROMO_WHITE_MURLOC_EGG", "PROMO_HEAVY_MURLOC_EGG", "PROMO_MURKIMUS_SPEAR",
-        "PROMO_ZERGLING_LEASH", "PROMO_PANDA_COLLAR", "PROMO_DIABLO_STONE", "PROMO_NETHERWHELP", "PROMO_FROSTYS_COLLAR", "WWI_TYRAELS_HILT",
-        "PROMO_WARBOT_KEY", "PROMO_ENCHANTED_ONYX", "PROMO_CORE_HOUND_PUP", "PROMO_GRYPHON_HATCHLING", "PROMO_WIND_RIDER_CUB", "PROMO_PANDAREN_MONK",
-        "PROMO_LIL_PHYLACTERY", "PROMO_LIL_XT", "PROMO_MINI_THOR", "PROMO_ONYXIAN_WHELPLING"
+        char const* itemName;
+        char const* vendors;
+    };
+
+    std::unordered_map<std::string, TcgRewardInfo> const TCG_REWARD_INFO =
+    {
+        { "TCG_TABARD_OF_FLAME", { "Tabard of Flame", "Landro Longshot in Booty Bay" } },
+        { "TCG_HIPPOGRYPH_HATCHLING", { "Hippogryph Hatchling", "Landro Longshot in Booty Bay" } },
+        { "TCG_RIDING_TURTLE", { "Riding Turtle", "Landro Longshot in Booty Bay" } },
+        { "TCG_PICNIC_BASKET", { "Picnic Basket", "Landro Longshot in Booty Bay" } },
+        { "TCG_BANANA_CHARM", { "Banana Charm", "Landro Longshot in Booty Bay" } },
+        { "TCG_IMP_IN_A_BALL", { "Imp in a Ball", "Landro Longshot in Booty Bay" } },
+        { "TCG_GOBLIN_GUMBO_KETTLE", { "Goblin Gumbo Kettle", "Landro Longshot in Booty Bay" } },
+        { "TCG_FISHING_CHAIR", { "Fishing Chair", "Landro Longshot in Booty Bay" } },
+        { "TCG_SPECTRAL_TIGER", { "Reins of the Spectral Tiger", "Landro Longshot in Booty Bay" } },
+        { "TCG_PAPER_FLYING_MACHINE", { "Paper Flying Machine Kit", "Landro Longshot in Booty Bay" } },
+        { "TCG_ROCKET_CHICKEN", { "Rocket Chicken", "Landro Longshot in Booty Bay" } },
+        { "TCG_DRAGON_KITE", { "Dragon Kite", "Landro Longshot in Booty Bay" } },
+        { "TCG_X51_NETHER_ROCKET", { "X-51 Nether-Rocket", "Landro Longshot in Booty Bay" } },
+        { "TCG_PET_BISCUIT", { "Papa Hummel's Old-Fashioned Pet Biscuit", "Landro Longshot in Booty Bay" } },
+        { "TCG_GOBLIN_WEATHER_MACHINE", { "Goblin Weather Machine - Prototype 01-B", "Landro Longshot in Booty Bay" } },
+        { "TCG_PATH_OF_ILLIDAN", { "Path of Illidan", "Landro Longshot in Booty Bay" } },
+        { "TCG_DISCO", { "D.I.S.C.O.", "Landro Longshot in Booty Bay" } },
+        { "TCG_SOUL_TRADER_BEACON", { "Soul-Trader Beacon", "Landro Longshot in Booty Bay" } },
+        { "TCG_PARTY_GRENADE", { "Party G.R.E.N.A.D.E.", "Landro Longshot in Booty Bay" } },
+        { "TCG_FLAG_OF_OWNERSHIP", { "The Flag of Ownership", "Landro Longshot in Booty Bay" } },
+        { "TCG_BIG_BATTLE_BEAR", { "Big Battle Bear", "Landro Longshot in Booty Bay" } },
+        { "TCG_SANDBOX_TIGER", { "Sandbox Tiger", "Landro Longshot in Booty Bay" } },
+        { "TCG_EPIC_PURPLE_SHIRT", { "Epic Purple Shirt", "Landro Longshot in Booty Bay" } },
+        { "TCG_FOAM_SWORD_RACK", { "Foam Sword Rack", "Landro Longshot in Booty Bay" } },
+        { "TCG_PATH_OF_CENARIUS", { "Path of Cenarius", "Landro Longshot in Booty Bay" } },
+        { "TCG_OGRE_PINATA", { "Ogre Pinata", "Landro Longshot in Booty Bay" } },
+        { "TCG_MAGIC_ROOSTER_EGG", { "Magic Rooster Egg", "Landro Longshot in Booty Bay" } },
+        { "TCG_SCOURGEWAR_MINIMOUNT", { "Scourgewar Mini-Mount", "Landro Longshot in Booty Bay" } },
+        { "TCG_TUSKARR_KITE", { "Tuskarr Kite", "Landro Longshot in Booty Bay" } },
+        { "TCG_SPECTRAL_TIGER_CUB", { "Spectral Tiger Cub", "Landro Longshot in Booty Bay" } },
+        { "TCG_LANDROS_GIFT_BOX", { "Landro's Gift Box", "Landro Longshot in Booty Bay" } },
+        { "TCG_INSTANT_STATUE_PEDESTAL", { "Instant Statue Pedestal", "Landro Longshot in Booty Bay" } },
+        { "TCG_BLAZING_HIPPOGRYPH", { "Blazing Hippogryph", "Landro Longshot in Booty Bay" } },
+        { "TCG_PAINT_BOMB", { "Paint Bomb", "Landro Longshot in Booty Bay" } },
+        { "TCG_ETHEREAL_PORTAL", { "Ethereal Portal", "Landro Longshot in Booty Bay" } },
+        { "TCG_WOOLY_WHITE_RHINO", { "Wooly White Rhino", "Landro Longshot in Booty Bay" } },
+        { "TCG_TABARD_OF_FROST", { "Tabard of Frost", "Landro Longshot in Booty Bay" } },
+        { "TCG_PERPETUAL_PURPLE_FIREWORK", { "Perpetual Purple Firework", "Landro Longshot in Booty Bay" } },
+        { "TCG_CARVED_OGRE_IDOL", { "Carved Ogre Idol", "Landro Longshot in Booty Bay" } },
+        { "TCG_TABARD_OF_THE_ARCANE", { "Tabard of the Arcane", "Landro Longshot in Booty Bay" } },
+        { "TCG_TABARD_OF_BRILLIANCE", { "Tabard of Brilliance", "Landro Longshot in Booty Bay" } },
+        { "TCG_TABARD_OF_THE_DEFENDER", { "Tabard of the Defender", "Landro Longshot in Booty Bay" } },
+        { "TCG_TABARD_OF_FURY", { "Tabard of Fury", "Landro Longshot in Booty Bay" } },
+        { "TCG_TABARD_OF_NATURE", { "Tabard of Nature", "Landro Longshot in Booty Bay" } },
+        { "TCG_TABARD_OF_THE_VOID", { "Tabard of the Void", "Landro Longshot in Booty Bay" } },
+        { "TCG_LANDROS_PET_BOX", { "Landro's Pet Box", "Landro Longshot in Booty Bay" } },
+        { "BLIZZCON_MURKY", { "Murky (Blue Murloc Egg)", "Ransin Donner in Ironforge or Zas'Tysh in Orgrimmar" } },
+        { "BLIZZCON_MURLOC_COSTUME", { "Murloc Costume", "Ransin Donner in Ironforge or Zas'Tysh in Orgrimmar" } },
+        { "BLIZZCON_BIG_BLIZZARD_BEAR", { "Big Blizzard Bear", "Ransin Donner in Ironforge or Zas'Tysh in Orgrimmar" } },
+        { "PROMO_GURKY", { "Gurky (Pink Murloc Egg)", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_ORANGE_MURLOC_EGG", { "Orange Murloc Egg", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_WHITE_MURLOC_EGG", { "White Murloc Egg", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_HEAVY_MURLOC_EGG", { "Heavy Murloc Egg", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_MURKIMUS_SPEAR", { "Murkimus' Little Spear", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_ZERGLING_LEASH", { "Zergling Leash", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_PANDA_COLLAR", { "Panda Collar", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_DIABLO_STONE", { "Diablo Stone", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_NETHERWHELP", { "Netherwhelp's Collar", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_FROSTYS_COLLAR", { "Frosty's Collar", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "WWI_TYRAELS_HILT", { "Tyrael's Hilt", "Ian Drake in Stormwind or Edward Cairn in the Undercity" } },
+        { "PROMO_WARBOT_KEY", { "Warbot Ignition Key", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_ENCHANTED_ONYX", { "Enchanted Onyx", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_CORE_HOUND_PUP", { "Core Hound Pup", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_GRYPHON_HATCHLING", { "Gryphon Hatchling", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_WIND_RIDER_CUB", { "Wind Rider Cub", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_PANDAREN_MONK", { "Pandaren Monk", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_LIL_PHYLACTERY", { "Lil' Phylactery", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_LIL_XT", { "Lil' XT", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_MINI_THOR", { "Mini Thor", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
+        { "PROMO_ONYXIAN_WHELPLING", { "Onyxian Whelpling", "Garel Redrock in Ironforge or Tharl Stonebleeder in Orgrimmar" } },
     };
 
     // Same alphabet and layout as mod-tcg-vendors' GenerateRandomCode: 16 characters without I, L, O, 0, and 1, shown as XXXX-XXXX-XXXX-XXXX.
@@ -129,6 +194,28 @@ namespace
             return false;
 #endif
         return player != nullptr;
+    }
+
+    // Per-character flag that the master reward mail was sent, kept apart from the challenge indexes of SETTING_SOURCE.
+    std::string const MASTER_SETTING_SOURCE = "mod-tofu-challenge-rewards";
+    constexpr uint8 MASTER_SETTING_SENT = 0;
+
+    // The code lines of a reward mail: for each code the item, the code, and where to redeem it. Empty when there are no codes.
+    std::string BuildCodeText(std::vector<std::pair<std::string, std::string>> const& codes)
+    {
+        if (codes.empty())
+            return "";
+
+        std::string text = codes.size() == 1 ? "\n\nYour redemption code:" : "\n\nYour redemption codes:";
+        for (auto const& [group, code] : codes)
+        {
+            auto info = TCG_REWARD_INFO.find(group);
+            std::string const itemName = info != TCG_REWARD_INFO.end() ? info->second.itemName : group;
+            std::string const vendors = info != TCG_REWARD_INFO.end() ? info->second.vendors : "any TCG vendor";
+            text += "\n\n" + itemName + ": " + code + "\nRedeem it with " + vendors + ".";
+        }
+        text += "\n\nEach code works once.";
+        return text;
     }
 }
 
@@ -379,76 +466,161 @@ void ChallengeModes::grantLevelRewards(Player* player, ChallengeModeSettings set
         }
     }
 
-    if (auto it = def->itemRewards.find(level); it != def->itemRewards.end() && !it->second.empty())
+    std::vector<ChallengeItemReward> items;
+    if (auto it = def->itemRewards.find(level); it != def->itemRewards.end())
+        items = it->second;
+
+    // Without a sender creature, items keep their own Postmaster mail as before.
+    if (!rewardMailSender && !items.empty())
     {
         std::vector<std::pair<uint32, uint32>> mailItems;
-        for (ChallengeItemReward const& reward : it->second)
+        for (ChallengeItemReward const& reward : items)
             mailItems.emplace_back(reward.itemId, reward.count);
         player->SendItemRetrievalMail(mailItems);
         SendSys(player, def->displayName + " reward: item(s) sent to your mailbox.");
+        items.clear();
     }
 
-    // One reward mail per challenge and level: the gold is attached and the redemption codes are in the body text.
     uint32 gold = 0;
     if (auto it = def->goldRewards.find(level); it != def->goldRewards.end())
         gold = it->second;
 
-    std::vector<std::pair<std::string, std::string>> codes; // reward_group, code
-    if (auto it = def->tcgCodeRewards.find(level); it != def->tcgCodeRewards.end() && !it->second.empty())
-    {
-        if (!tcgCodesActive())
-            LOG_ERROR("module", "mod-challenge-modes: {} has TCG code rewards at level {}, but TCG codes are off (ChallengeModes.TcgCodes.Enable = 0, or the table was not found at startup). No code was issued to {}.", def->confName, level, player->GetName());
-        else if (!IsPlayerMadeCharacter(player))
-            LOG_INFO("module", "mod-challenge-modes: {} is a random or addclass bot, so no TCG code was issued for {} level {}.", player->GetName(), def->confName, level);
-        else
-            for (std::string const& group : it->second)
-                codes.emplace_back(group, GenerateTcgCode());
-    }
-
-    if (!gold && codes.empty())
-        return;
+    std::vector<std::string> groups;
+    if (auto it = def->tcgCodeRewards.find(level); it != def->tcgCodeRewards.end())
+        groups = it->second;
 
     std::string const levelText = std::to_string(level);
     std::string subject = def->rewardMailSubject;
     ReplaceAll(subject, "{MODE}", def->displayName);
     ReplaceAll(subject, "{LEVEL}", levelText);
-
-    std::string codeText;
-    if (!codes.empty())
-    {
-        codeText = codes.size() == 1 ? "\n\nYour redemption code:" : "\n\nYour redemption codes:";
-        for (auto const& [group, code] : codes)
-            codeText += "\n" + code;
-        codeText += "\n\nRedeem at a TCG vendor. Each code works once.";
-    }
-
     std::string body = def->rewardMailBody;
     ReplaceAll(body, "{MODE}", def->displayName);
     ReplaceAll(body, "{LEVEL}", levelText);
+
+    sendRewardMail(player, subject, body, gold, items, groups, def->confName + " level " + levelText);
+}
+
+bool ChallengeModes::sendRewardMail(Player* player, std::string const& subject, std::string body, uint32 gold, std::vector<ChallengeItemReward> const& items, std::vector<std::string> const& tcgGroups, std::string const& context) const
+{
+    if (!player)
+        return false;
+
+    std::vector<std::pair<std::string, std::string>> codes; // reward_group, code
+    if (!tcgGroups.empty())
+    {
+        if (!tcgCodesActive())
+            LOG_ERROR("module", "mod-challenge-modes: {} has TCG code rewards, but TCG codes are off (ChallengeModes.TcgCodes.Enable = 0, or the table was not found at startup). No code was issued to {}.", context, player->GetName());
+        else if (!IsPlayerMadeCharacter(player))
+            LOG_INFO("module", "mod-challenge-modes: {} is a random or addclass bot, so no TCG code was issued for {}.", player->GetName(), context);
+        else
+            for (std::string const& group : tcgGroups)
+                codes.emplace_back(group, GenerateTcgCode());
+    }
+
+    // Split every item reward into full stacks; a mail holds at most MAX_MAIL_ITEMS stacks.
+    std::vector<std::pair<uint32, uint32>> stacks; // item entry, count
+    for (ChallengeItemReward const& reward : items)
+    {
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(reward.itemId);
+        if (!proto)
+        {
+            LOG_ERROR("module", "mod-challenge-modes: {} rewards item {}, which does not exist. It was skipped for {}.", context, reward.itemId, player->GetName());
+            continue;
+        }
+        uint32 const maxStack = std::max<uint32>(1, proto->GetMaxStackSize());
+        uint32 left = reward.count ? reward.count : 1;
+        while (left)
+        {
+            uint32 const count = std::min(left, maxStack);
+            stacks.emplace_back(reward.itemId, count);
+            left -= count;
+        }
+    }
+
+    if (!gold && codes.empty() && stacks.empty())
+        return false;
+
+    std::string const codeText = BuildCodeText(codes);
     if (body.find("{CODES}") != std::string::npos)
         ReplaceAll(body, "{CODES}", codeText);
     else
         body += codeText; // a code is never dropped because the body lost its placeholder
 
-    // The codes and the mail are saved in one transaction: either the player gets the mail and every code in it exists, or neither happens.
+    MailSender const sender = rewardMailSender ? MailSender(MAIL_CREATURE, rewardMailSender, MAIL_STATIONERY_DEFAULT) : MailSender(player, MAIL_STATIONERY_GM);
+
+    // The codes, the items, and the mails are saved in one transaction: either the player gets every mail and every code in them exists, or nothing happens.
     CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
     for (auto const& [group, code] : codes)
         trans->Append("INSERT INTO `{}` (code, reward_group, redeemed, account_id, character_guid, redeemed_date) VALUES ('{}', '{}', 0, NULL, NULL, NULL)", tcgCodesTable, code, group);
-    MailDraft draft(subject, body);
-    if (gold)
-        draft.AddMoney(gold);
-    draft.SendMailTo(trans, MailReceiver(player), MailSender(player, MAIL_STATIONERY_GM));
+
+    size_t next = 0;
+    uint32 mails = 0;
+    do
+    {
+        bool const first = mails == 0;
+        MailDraft draft(first ? subject : subject + " (continued)", first ? body : std::string("The rest of your reward is enclosed."));
+        if (first && gold)
+            draft.AddMoney(gold);
+        for (uint8 slot = 0; slot < MAX_MAIL_ITEMS && next < stacks.size(); ++slot, ++next)
+        {
+            if (Item* item = Item::CreateItem(stacks[next].first, stacks[next].second))
+            {
+                item->SaveToDB(trans);
+                draft.AddItem(item);
+            }
+        }
+        draft.SendMailTo(trans, MailReceiver(player), sender);
+        ++mails;
+    } while (next < stacks.size());
     CharacterDatabase.CommitTransaction(trans);
 
     for (auto const& [group, code] : codes)
-        LOG_INFO("module", "mod-challenge-modes: issued TCG code {} ({}) to {} (guid {}, account {}) for {} level {}.", code, group, player->GetName(), player->GetGUID().GetCounter(), player->GetSession() ? player->GetSession()->GetAccountId() : 0, def->confName, level);
+        LOG_INFO("module", "mod-challenge-modes: issued TCG code {} ({}) to {} (guid {}, account {}) for {}.", code, group, player->GetName(), player->GetGUID().GetCounter(), player->GetSession() ? player->GetSession()->GetAccountId() : 0, context);
 
-    if (gold && !codes.empty())
-        SendSys(player, def->displayName + " reward: " + std::to_string(gold / 10000) + " gold and " + std::to_string(codes.size()) + " redemption code(s) sent to your mailbox.");
-    else if (gold)
-        SendSys(player, def->displayName + " reward: " + std::to_string(gold / 10000) + " gold sent to your mailbox.");
-    else
-        SendSys(player, def->displayName + " reward: " + std::to_string(codes.size()) + " redemption code(s) sent to your mailbox.");
+    std::vector<std::string> parts;
+    if (gold)
+        parts.push_back(std::to_string(gold / 10000) + " gold");
+    if (!stacks.empty())
+        parts.push_back("item(s)");
+    if (!codes.empty())
+        parts.push_back(std::to_string(codes.size()) + " redemption code(s)");
+    std::string summary;
+    for (size_t i = 0; i < parts.size(); ++i)
+        summary += (i == 0 ? "" : (i + 1 == parts.size() ? " and " : ", ")) + parts[i];
+    SendSys(player, "Reward: " + summary + " sent to your mailbox.");
+    return true;
+}
+
+void ChallengeModes::grantMasterReward(Player* player) const
+{
+    if (!player || !masterAchievementId || masterTcgCodeRewards.empty())
+        return;
+
+    if (!IsPlayerMadeCharacter(player))
+        return;
+
+    if (player->GetPlayerSetting(MASTER_SETTING_SOURCE, MASTER_SETTING_SENT).value)
+    {
+        LOG_INFO("module", "mod-challenge-modes: {} completed achievement {} again; the master reward mail was already sent once, so none was sent.", player->GetName(), masterAchievementId);
+        return;
+    }
+
+    if (sendRewardMail(player, masterMailSubject, masterMailBody, 0, {}, masterTcgCodeRewards, "Master achievement " + std::to_string(masterAchievementId)))
+        player->UpdatePlayerSetting(MASTER_SETTING_SOURCE, MASTER_SETTING_SENT, 1);
+}
+
+void ChallengeModes::validateRewardMail()
+{
+    if (rewardMailSender && !sObjectMgr->GetCreatureTemplate(rewardMailSender))
+    {
+        LOG_ERROR("module", "mod-challenge-modes: ChallengeModes.RewardMail.Sender {} is not a creature entry. Reward mails come from the player on GM stationery until it is fixed.", rewardMailSender);
+        rewardMailSender = 0;
+    }
+
+    if (masterAchievementId && !sAchievementStore.LookupEntry(masterAchievementId))
+        LOG_ERROR("module", "mod-challenge-modes: ChallengeModes.Master.AchievementId {} is not in Achievement.dbc or achievement_dbc. The master reward mail is never sent.", masterAchievementId);
+
+    LOG_INFO("module", "mod-challenge-modes: reward mails from creature {}; master reward on achievement {} with {} code(s).", rewardMailSender, masterAchievementId, masterTcgCodeRewards.size());
 }
 
 void ChallengeModes::checkTcgCodesTable()
@@ -475,10 +647,13 @@ void ChallengeModes::checkTcgCodesTable()
 
 void ChallengeModes::validateTcgCodeRewards() const
 {
+    for (std::string const& group : masterTcgCodeRewards)
+        if (!TCG_REWARD_INFO.count(group))
+            LOG_WARN("module", "mod-challenge-modes: ChallengeModes.Master.TcgCodeRewards uses reward_group {}, which mod-tcg-vendors b24b511 does not define. Codes are still issued, but the vendor rejects them unless the key exists.", group);
     for (ChallengeDefinition const& def : definitions)
         for (auto const& [level, groups] : def.tcgCodeRewards)
             for (std::string const& group : groups)
-                if (!KNOWN_TCG_GROUPS.count(group))
+                if (!TCG_REWARD_INFO.count(group))
                     LOG_WARN("module", "mod-challenge-modes: {}.TcgCodeRewards level {} uses reward_group {}, which mod-tcg-vendors b24b511 does not define. Codes are still issued, but the vendor rejects them unless the key exists (check with: python tools/generate_codes.py --list-groups).", def.confName, level, group);
 }
 
@@ -547,7 +722,10 @@ public:
         LoadConfig();
         // The table can only appear with a build and restart, so a reload keeps the startup result and only re-checks the keys.
         if (reload)
+        {
             sChallengeModes->validateTcgCodeRewards();
+            sChallengeModes->validateRewardMail();
+        }
     }
 
     void OnStartup() override
@@ -555,6 +733,7 @@ public:
         sChallengeModes->buildStartupData();
         sChallengeModes->checkTcgCodesTable();
         sChallengeModes->validateTcgCodeRewards();
+        sChallengeModes->validateRewardMail();
     }
 
 private:
@@ -627,6 +806,26 @@ private:
         }
     }
 
+    static void LoadKeyList(std::vector<std::string>& target, std::string const& configString)
+    {
+        target.clear();
+        std::string normalized = configString;
+        for (char& c : normalized)
+            if (c == ',')
+                c = ' ';
+        std::stringstream stream(normalized);
+        std::string token;
+        while (stream >> token)
+        {
+            if (!IsValidTcgGroupKey(token))
+            {
+                LOG_ERROR("module", "mod-challenge-modes: skipped ChallengeModes.Master.TcgCodeRewards entry \"{}\": a key is A-Z, 0-9, and _ only.", token);
+                continue;
+            }
+            target.push_back(token);
+        }
+    }
+
     static void LoadIdSet(std::unordered_set<uint32>& target, std::string const& configString)
     {
         target.clear();
@@ -671,6 +870,11 @@ private:
         sChallengeModes->itemQualityMax = sConfigMgr->GetOption<uint32>("ItemQualityLevel.MaxQuality", ITEM_QUALITY_UNCOMMON);
         sChallengeModes->tcgCodesConfigured = sConfigMgr->GetOption<bool>("ChallengeModes.TcgCodes.Enable", false);
         sChallengeModes->tcgCodesTable = sConfigMgr->GetOption<std::string>("ChallengeModes.TcgCodes.Table", "account_tcg_codes");
+        sChallengeModes->rewardMailSender = sConfigMgr->GetOption<uint32>("ChallengeModes.RewardMail.Sender", 16128);
+        sChallengeModes->masterAchievementId = sConfigMgr->GetOption<uint32>("ChallengeModes.Master.AchievementId", 0);
+        LoadKeyList(sChallengeModes->masterTcgCodeRewards, sConfigMgr->GetOption<std::string>("ChallengeModes.Master.TcgCodeRewards", ""));
+        sChallengeModes->masterMailSubject = ExpandLineBreaks(sConfigMgr->GetOption<std::string>("ChallengeModes.Master.RewardMail.Subject", "Master of Challenges"));
+        sChallengeModes->masterMailBody = ExpandLineBreaks(sConfigMgr->GetOption<std::string>("ChallengeModes.Master.RewardMail.Body", "Congratulations on mastering every challenge.{CODES}"));
 
         LoadDefinition(SETTING_HARDCORE, "Hardcore", "Hardcore", true, 80, 1.0f);
         LoadDefinition(SETTING_SEMI_HARDCORE, "SemiHardcore", "Semi-Hardcore", false, 0, 1.0f);
@@ -1061,6 +1265,14 @@ class ChallengeModes_PlayerRules : public PlayerScript
 {
 public:
     ChallengeModes_PlayerRules() : PlayerScript("ChallengeModes_PlayerRules") {}
+
+    void OnPlayerAchievementComplete(Player* player, AchievementEntry const* achievement) override
+    {
+        if (!sChallengeModes->enabled() || !achievement || !sChallengeModes->masterAchievementId)
+            return;
+        if (achievement->ID == sChallengeModes->masterAchievementId)
+            sChallengeModes->grantMasterReward(player);
+    }
 
     void OnPlayerLogin(Player* player) override
     {

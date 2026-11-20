@@ -81,6 +81,11 @@ public:
     bool tcgCodesConfigured = false; // ChallengeModes.TcgCodes.Enable
     bool tcgCodesAvailable = false; // the codes table was found at startup
     std::string tcgCodesTable = "account_tcg_codes";
+    uint32 rewardMailSender = 16128; // ChallengeModes.RewardMail.Sender: creature entry the reward mails come from (16128 Rhonin); 0 = the player, on GM stationery
+    uint32 masterAchievementId = 0; // ChallengeModes.Master.AchievementId: completing it sends the master reward mail (0 = off)
+    std::vector<std::string> masterTcgCodeRewards; // ChallengeModes.Master.TcgCodeRewards: reward_group keys, one code each
+    std::string masterMailSubject;
+    std::string masterMailBody; // placeholder {CODES}
     std::array<ChallengeDefinition, CHALLENGE_MODE_COUNT> definitions;
     std::unordered_set<uint32> hardcoreBlockedSpells;
     std::unordered_set<uint32> selfCraftedExtraExemptItems;
@@ -107,6 +112,10 @@ public:
     bool isCompleted(Player* player, ChallengeModeSettings setting) const;
     void markCompleted(Player* player, ChallengeModeSettings setting) const;
     void grantLevelRewards(Player* player, ChallengeModeSettings setting, uint8 level) const;
+    void grantMasterReward(Player* player) const; // once per character, when masterAchievementId completes
+    // One reward mail (more only when the items need more than 12 slots): gold, items, and fresh TCG codes in the body. Returns true when a mail was sent.
+    bool sendRewardMail(Player* player, std::string const& subject, std::string body, uint32 gold, std::vector<ChallengeItemReward> const& items, std::vector<std::string> const& tcgGroups, std::string const& context) const;
+    void validateRewardMail(); // startup and config reload: checks the sender creature and the master achievement
     void buildStartupData();
     [[nodiscard]] bool tcgCodesActive() const { return tcgCodesConfigured && tcgCodesAvailable; }
     void checkTcgCodesTable(); // startup only: looks for the codes table in the characters database

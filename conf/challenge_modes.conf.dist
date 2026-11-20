@@ -55,6 +55,29 @@ ChallengeModes.TcgCodes.Enable = 0
 
 ChallengeModes.TcgCodes.Table = "account_tcg_codes"
 
+#    ChallengeModes.RewardMail.Sender
+#        Description: Creature entry the reward mails come from, on normal stationery, the same way the core sends achievement mail (Rhonin's level 80 letter comes from 16128). Gold, ItemRewards items, and redemption codes of one challenge level arrive together in one mail (a second mail only when the items need more than 12 slots).
+#            0 sends the mail from the player on GM stationery and keeps item rewards in a separate Postmaster mail (the old behavior). An entry that does not exist is logged at startup and treated as 0.
+#        Default:     16128 - Rhonin
+#
+
+ChallengeModes.RewardMail.Sender = 16128
+
+#    ChallengeModes.Master.AchievementId
+#    ChallengeModes.Master.TcgCodeRewards
+#    ChallengeModes.Master.RewardMail.Subject
+#    ChallengeModes.Master.RewardMail.Body
+#        Description: When a player-made character completes the achievement AchievementId (for example a meta achievement over the challenge achievements), it gets one reward mail from RewardMail.Sender with one redemption code per key in TcgCodeRewards (space or comma separated). Sent once per character (flag in character_settings, source mod-tofu-challenge-rewards, index 0), never to random or addclass bots. Needs ChallengeModes.TcgCodes.Enable = 1.
+#            If another module copies the achievement to alts (for example mod-account-bound), each player-made alt that receives it also gets the mail once.
+#            Body placeholder: {CODES}, as in <Challenge>.RewardMail.Body. Write \n for a line break.
+#        Default:     AchievementId 0 (off), TcgCodeRewards "", Subject "Master of Challenges", Body "Congratulations on mastering every challenge.{CODES}"
+#
+
+ChallengeModes.Master.AchievementId = 0
+ChallengeModes.Master.TcgCodeRewards = ""
+ChallengeModes.Master.RewardMail.Subject = "Master of Challenges"
+ChallengeModes.Master.RewardMail.Body = "Congratulations on mastering every challenge.{CODES}"
+
 #
 #    The following challenge modes are available:
 #        Hardcore - Players who die are permanently dead. Nobody can resurrect them, and they cannot cast the spells in Hardcore.BlockedSpells.
@@ -101,10 +124,9 @@ ChallengeModes.TcgCodes.Table = "account_tcg_codes"
 #        Example: <Challenge>.TcgCodeRewards = "80 TCG_SPECTRAL_TIGER"
 #    <Challenge>.RewardMail.Subject = "{MODE} reward"
 #    <Challenge>.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
-#        The mail sent for a level that has GoldRewards or TcgCodeRewards: one mail per challenge and level, with the gold attached and the codes in the body.
-#        Placeholders: {MODE} (challenge name), {LEVEL}, and {CODES} (body only: a blank line, then the code or codes, one per line, and how to redeem them; empty when the level has no codes).
+#        The mail sent for a level that has GoldRewards, ItemRewards, or TcgCodeRewards: one mail per challenge and level from ChallengeModes.RewardMail.Sender, with the gold and items attached and the codes in the body.
+#        Placeholders: {MODE} (challenge name), {LEVEL}, and {CODES} (body only: for each code the item name, the code, and the TCG vendor NPCs that list the item; empty when the level has no codes).
 #        Write \n for a line break. If the body has no {CODES}, the codes are added at the end, so a code is never left out.
-#        Item rewards (ItemRewards) still arrive in their own mail.
 #
 #    Levels are rewarded even when a level is skipped (for example with a Level-Up Token or a GM command).
 #    Custom titles and custom items need their own DBC rows, database rows, and client patch before their IDs are put here.
