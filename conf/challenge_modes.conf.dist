@@ -46,7 +46,7 @@ ChallengeModes.EnforceEquipment = 1
 #                     1 - Enabled
 #
 
-ChallengeModes.TcgCodes.Enable = 0
+ChallengeModes.TcgCodes.Enable = 1
 
 #    ChallengeModes.TcgCodes.Table
 #        Description: Name of mod-tcg-vendors' codes table in the characters database. Letters, digits, and underscores only. Read at startup only.
@@ -73,10 +73,10 @@ ChallengeModes.RewardMail.Sender = 16128
 #        Default:     AchievementId 0 (off), TcgCodeRewards "", Subject "Master of Challenges", Body "Congratulations on mastering every challenge.{CODES}"
 #
 
-ChallengeModes.Master.AchievementId = 0
-ChallengeModes.Master.TcgCodeRewards = ""
+ChallengeModes.Master.AchievementId = 60005
+ChallengeModes.Master.TcgCodeRewards = "TCG_SPECTRAL_TIGER_CUB"
 ChallengeModes.Master.RewardMail.Subject = "Master of Challenges"
-ChallengeModes.Master.RewardMail.Body = "Congratulations on mastering every challenge.{CODES}"
+ChallengeModes.Master.RewardMail.Body = "You have mastered every challenge this world could set before you. There are not many in Azeroth who can say the same, and fewer still who would try.\n\nThe Kirin Tor have set aside something special for you.{CODES}\n\nRhonin"
 
 #
 #    The following challenge modes are available:
@@ -140,10 +140,10 @@ Hardcore.ItemRewards = ""
 Hardcore.ItemRewardAmount = 1
 Hardcore.GoldRewards = ""
 Hardcore.DisableLevel = 80
-Hardcore.AchievementReward = ""
-Hardcore.TcgCodeRewards = ""
-Hardcore.RewardMail.Subject = "{MODE} reward"
-Hardcore.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+Hardcore.AchievementReward = "80 60000"
+Hardcore.TcgCodeRewards = "80 PROMO_LIL_PHYLACTERY"
+Hardcore.RewardMail.Subject = "The {MODE} challenge"
+Hardcore.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
 
 #    Hardcore.BlockedSpells
 #        Description: Spell IDs a Hardcore character cannot cast because they kill the caster. Space or comma separated.
@@ -160,10 +160,10 @@ SelfCrafted.ItemRewards = ""
 SelfCrafted.ItemRewardAmount = 1
 SelfCrafted.GoldRewards = ""
 SelfCrafted.DisableLevel = 80
-SelfCrafted.AchievementReward = ""
-SelfCrafted.TcgCodeRewards = ""
-SelfCrafted.RewardMail.Subject = "{MODE} reward"
-SelfCrafted.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+SelfCrafted.AchievementReward = "80 60001"
+SelfCrafted.TcgCodeRewards = "80 PROMO_WARBOT_KEY"
+SelfCrafted.RewardMail.Subject = "The {MODE} challenge"
+SelfCrafted.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
 
 #    SelfCrafted.ExemptItems
 #        Description: Extra item IDs Self Crafted characters may equip, on top of the built-in exemptions. Space or comma separated.
@@ -180,10 +180,10 @@ ItemQualityLevel.ItemRewards = ""
 ItemQualityLevel.ItemRewardAmount = 1
 ItemQualityLevel.GoldRewards = ""
 ItemQualityLevel.DisableLevel = 80
-ItemQualityLevel.AchievementReward = ""
-ItemQualityLevel.TcgCodeRewards = ""
-ItemQualityLevel.RewardMail.Subject = "{MODE} reward"
-ItemQualityLevel.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+ItemQualityLevel.AchievementReward = "80 60002"
+ItemQualityLevel.TcgCodeRewards = "80 PROMO_LIL_XT"
+ItemQualityLevel.RewardMail.Subject = "The {MODE} challenge"
+ItemQualityLevel.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
 
 #    ItemQualityLevel.MaxQuality
 #        Description: Highest item quality Green Quality characters may equip. Bags and quivers are exempt.
@@ -201,10 +201,10 @@ OneRate.ItemRewards = ""
 OneRate.ItemRewardAmount = 1
 OneRate.GoldRewards = ""
 OneRate.DisableLevel = 80
-OneRate.AchievementReward = ""
-OneRate.TcgCodeRewards = ""
-OneRate.RewardMail.Subject = "{MODE} reward"
-OneRate.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+OneRate.AchievementReward = "80 60003"
+OneRate.TcgCodeRewards = "80 PROMO_GRYPHON_HATCHLING"
+OneRate.RewardMail.Subject = "The {MODE} challenge"
+OneRate.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
 
 QuestXpOnly.Enable = 1
 QuestXpOnly.TitleRewards = ""
@@ -214,10 +214,10 @@ QuestXpOnly.ItemRewards = ""
 QuestXpOnly.ItemRewardAmount = 1
 QuestXpOnly.GoldRewards = ""
 QuestXpOnly.DisableLevel = 80
-QuestXpOnly.AchievementReward = ""
-QuestXpOnly.TcgCodeRewards = ""
-QuestXpOnly.RewardMail.Subject = "{MODE} reward"
-QuestXpOnly.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+QuestXpOnly.AchievementReward = "80 60004"
+QuestXpOnly.TcgCodeRewards = "80 PROMO_WIND_RIDER_CUB"
+QuestXpOnly.RewardMail.Subject = "The {MODE} challenge"
+QuestXpOnly.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
 
 Progression.Enable = 1
 Progression.TitleRewards = ""
