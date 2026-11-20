@@ -208,7 +208,7 @@ namespace
         if (codes.empty())
             return "";
 
-        std::string text = codes.size() == 1 ? "\n\nYour redemption code:" : "\n\nYour redemption codes:";
+        std::string text = codes.size() == 1 ? "Your redemption code:" : "Your redemption codes:";
         for (auto const& [group, code] : codes)
         {
             auto info = TCG_REWARD_INFO.find(group);
@@ -543,10 +543,16 @@ bool ChallengeModes::sendRewardMail(Player* player, std::string const& subject, 
         return false;
 
     std::string const codeText = BuildCodeText(codes);
-    if (body.find("{CODES}") != std::string::npos)
+    if (codeText.empty())
+    {
+        // No codes: drop the placeholder and the blank line written before it.
+        ReplaceAll(body, "\n\n{CODES}", "");
+        ReplaceAll(body, "{CODES}", "");
+    }
+    else if (body.find("{CODES}") != std::string::npos)
         ReplaceAll(body, "{CODES}", codeText);
     else
-        body += codeText; // a code is never dropped because the body lost its placeholder
+        body += "\n\n" + codeText; // a code is never dropped because the body lost its placeholder
 
     MailSender const sender = rewardMailSender ? MailSender(MAIL_CREATURE, rewardMailSender, MAIL_STATIONERY_DEFAULT) : MailSender(player, MAIL_STATIONERY_GM);
 
@@ -595,7 +601,7 @@ bool ChallengeModes::sendRewardMail(Player* player, std::string const& subject, 
 
 void ChallengeModes::grantMasterReward(Player* player) const
 {
-    if (!player || !masterAchievementId || masterTcgCodeRewards.empty())
+    if (!player || !masterAchievementId || (masterTcgCodeRewards.empty() && !masterGoldReward))
         return;
 
     if (!IsPlayerMadeCharacter(player))
@@ -607,7 +613,7 @@ void ChallengeModes::grantMasterReward(Player* player) const
         return;
     }
 
-    if (sendRewardMail(player, masterMailSubject, masterMailBody, 0, {}, masterTcgCodeRewards, "Master achievement " + std::to_string(masterAchievementId)))
+    if (sendRewardMail(player, masterMailSubject, masterMailBody, masterGoldReward, {}, masterTcgCodeRewards, "Master achievement " + std::to_string(masterAchievementId)))
         player->UpdatePlayerSetting(MASTER_SETTING_SOURCE, MASTER_SETTING_SENT, 1);
 }
 
@@ -622,7 +628,7 @@ void ChallengeModes::validateRewardMail()
     if (masterAchievementId && !sAchievementStore.LookupEntry(masterAchievementId))
         LOG_ERROR("module", "mod-challenge-modes: ChallengeModes.Master.AchievementId {} is not in Achievement.dbc or achievement_dbc. The master reward mail is never sent.", masterAchievementId);
 
-    LOG_INFO("module", "mod-challenge-modes: reward mails from creature {}; master reward on achievement {} with {} code(s).", rewardMailSender, masterAchievementId, masterTcgCodeRewards.size());
+    LOG_INFO("module", "mod-challenge-modes: reward mails from creature {}; master reward on achievement {} with {} copper and {} code(s).", rewardMailSender, masterAchievementId, masterGoldReward, masterTcgCodeRewards.size());
 }
 
 void ChallengeModes::checkTcgCodesTable()
@@ -858,7 +864,7 @@ private:
         LoadLevelList(def.achievementRewards, sConfigMgr->GetOption<std::string>(confName + ".AchievementReward", ""));
         LoadTcgCodes(def.tcgCodeRewards, sConfigMgr->GetOption<std::string>(confName + ".TcgCodeRewards", ""), confName);
         def.rewardMailSubject = ExpandLineBreaks(sConfigMgr->GetOption<std::string>(confName + ".RewardMail.Subject", "{MODE} reward"));
-        def.rewardMailBody = ExpandLineBreaks(sConfigMgr->GetOption<std::string>(confName + ".RewardMail.Body", "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"));
+        def.rewardMailBody = ExpandLineBreaks(sConfigMgr->GetOption<std::string>(confName + ".RewardMail.Body", "Congratulations on reaching level {LEVEL} on the {MODE} challenge.\n\n{CODES}"));
     }
 
     static void LoadConfig()
@@ -875,8 +881,9 @@ private:
         sChallengeModes->rewardMailSender = sConfigMgr->GetOption<uint32>("ChallengeModes.RewardMail.Sender", 16128);
         sChallengeModes->masterAchievementId = sConfigMgr->GetOption<uint32>("ChallengeModes.Master.AchievementId", 0);
         LoadKeyList(sChallengeModes->masterTcgCodeRewards, sConfigMgr->GetOption<std::string>("ChallengeModes.Master.TcgCodeRewards", ""));
+        sChallengeModes->masterGoldReward = sConfigMgr->GetOption<uint32>("ChallengeModes.Master.GoldReward", 0);
         sChallengeModes->masterMailSubject = ExpandLineBreaks(sConfigMgr->GetOption<std::string>("ChallengeModes.Master.RewardMail.Subject", "Master of Challenges"));
-        sChallengeModes->masterMailBody = ExpandLineBreaks(sConfigMgr->GetOption<std::string>("ChallengeModes.Master.RewardMail.Body", "Congratulations on mastering every challenge.{CODES}"));
+        sChallengeModes->masterMailBody = ExpandLineBreaks(sConfigMgr->GetOption<std::string>("ChallengeModes.Master.RewardMail.Body", "Congratulations on mastering every challenge.\n\n{CODES}"));
 
         LoadDefinition(SETTING_HARDCORE, "Hardcore", "Hardcore", true, 80, 1.0f);
         LoadDefinition(SETTING_SEMI_HARDCORE, "SemiHardcore", "Semi-Hardcore", false, 0, 1.0f);
@@ -1609,43 +1616,107 @@ public:
         return name;
     }
 
-    // The reward list, built from the live conf, one line per level.
+    // "a, b, and c" (Oxford comma), "a and b", or "a".
+    static std::string JoinList(std::vector<std::string> const& parts)
+    {
+        std::string text;
+        for (size_t i = 0; i < parts.size(); ++i)
+            text += (i ? (i + 1 == parts.size() ? (parts.size() > 2 ? ", and " : " and ") : ", ") : "") + parts[i];
+        return text;
+    }
+
+    // The item a redemption code is for, by its mod-tcg-vendors name when known.
+    static std::string TcgItemName(std::string const& group)
+    {
+        auto info = TCG_REWARD_INFO.find(group);
+        return info != TCG_REWARD_INFO.end() ? std::string(info->second.itemName) : TcgGroupName(group);
+    }
+
+    // The reward list, built from the live conf, one line per level, then how each part is delivered.
     static std::string DescribeRewards(ChallengeModeSettings setting)
     {
         ChallengeDefinition const* def = sChallengeModes->getDefinition(setting);
         if (!def)
             return "";
+
+        // Granted on the spot first, then what the reward letter carries.
         std::map<uint8, std::vector<std::string>> byLevel;
-        for (auto const& [level, titles] : def->titleRewards)
-            for (uint32 titleId : titles)
-                byLevel[level].push_back("the title " + TitleName(titleId));
+        bool anyTalents = false, anyAchievement = false, anyAchievementTitle = false, anyTitle = false, anyGold = false, anyItems = false;
+        uint32 codeCount = 0;
         for (auto const& [level, points] : def->talentRewards)
             if (points)
+            {
                 byLevel[level].push_back(std::to_string(points) + (points == 1 ? " bonus talent point" : " bonus talent points"));
-        for (auto const& [level, gold] : def->goldRewards)
-            if (gold)
-                byLevel[level].push_back(FormatGold(gold));
-        for (auto const& [level, items] : def->itemRewards)
-            for (ChallengeItemReward const& reward : items)
-                byLevel[level].push_back(ItemName(reward.itemId) + (reward.count > 1 ? " x" + std::to_string(reward.count) : ""));
-        for (auto const& [level, groups] : def->tcgCodeRewards)
-            for (std::string const& group : groups)
-                byLevel[level].push_back("a redemption code for " + TcgGroupName(group));
+                anyTalents = true;
+            }
         for (auto const& [level, achievements] : def->achievementRewards)
             for (uint32 achievementId : achievements)
-                byLevel[level].push_back(AchievementWithTitle(achievementId));
+            {
+                std::string const text = AchievementWithTitle(achievementId);
+                byLevel[level].push_back(text);
+                anyAchievement = true;
+                if (text.find("(title: ") != std::string::npos)
+                    anyAchievementTitle = true;
+            }
+        for (auto const& [level, titles] : def->titleRewards)
+            for (uint32 titleId : titles)
+            {
+                byLevel[level].push_back("the title " + TitleName(titleId));
+                anyTitle = true;
+            }
+        for (auto const& [level, gold] : def->goldRewards)
+            if (gold)
+            {
+                byLevel[level].push_back(FormatGold(gold));
+                anyGold = true;
+            }
+        for (auto const& [level, items] : def->itemRewards)
+            for (ChallengeItemReward const& reward : items)
+            {
+                byLevel[level].push_back(ItemName(reward.itemId) + (reward.count > 1 ? " x" + std::to_string(reward.count) : ""));
+                anyItems = true;
+            }
+        for (auto const& [level, groups] : def->tcgCodeRewards)
+            for (std::string const& group : groups)
+            {
+                byLevel[level].push_back("a redemption code for " + TcgItemName(group));
+                ++codeCount;
+            }
 
         std::string text = sChallengeModes->getDisplayName(setting) + " rewards:";
         if (byLevel.empty())
             return text + "\nNo rewards are set for this challenge yet.";
         for (auto const& [level, rewards] : byLevel)
+            text += "\nLevel " + std::to_string(level) + ": " + JoinList(rewards) + ".";
+
+        std::vector<std::string> atOnce;
+        if (anyTalents)
+            atOnce.push_back("the talent points");
+        if (anyAchievement)
+            atOnce.push_back("the achievement");
+        if (anyAchievementTitle || anyTitle)
+            atOnce.push_back(anyAchievement ? "its title" : "the title");
+        std::vector<std::string> byLetter;
+        if (anyGold)
+            byLetter.push_back("the gold");
+        if (anyItems)
+            byLetter.push_back("the items");
+        if (codeCount)
+            byLetter.push_back(codeCount == 1 ? "the redemption code" : "the redemption codes");
+
+        if (!atOnce.empty())
         {
-            text += "\nLevel " + std::to_string(level) + ": ";
-            for (size_t i = 0; i < rewards.size(); ++i)
-                text += (i ? (i + 1 == rewards.size() ? (rewards.size() > 2 ? ", and " : " and ") : ", ") : "") + rewards[i];
-            text += ".";
+            std::string sentence = JoinList(atOnce) + (atOnce.size() == 1 && atOnce.front() != "the talent points" ? " is" : " are") + " granted at once.";
+            sentence[0] = char(std::toupper(static_cast<unsigned char>(sentence[0])));
+            text += "\n" + sentence;
         }
-        text += "\nGold and items arrive by mail.";
+        if (!byLetter.empty())
+        {
+            CreatureTemplate const* sender = sChallengeModes->rewardMailSender ? sObjectMgr->GetCreatureTemplate(sChallengeModes->rewardMailSender) : nullptr;
+            std::string sentence = JoinList(byLetter) + (byLetter.size() == 1 && byLetter.front() != "the items" && byLetter.front() != "the redemption codes" ? " arrives" : " arrive") + (sender ? " in a letter from " + sender->Name + "." : " by mail.");
+            sentence[0] = char(std::toupper(static_cast<unsigned char>(sentence[0])));
+            text += "\n" + sentence;
+        }
 
         // The master achievement (ChallengeModes.Master.AchievementId), shown on every challenge that grants an achievement itself.
         uint32 const masterId = sChallengeModes->masterAchievementId;
@@ -1657,7 +1728,12 @@ public:
                     if (ChallengeDefinition const* otherDef = sChallengeModes->getDefinition(other))
                         if (!otherDef->achievementRewards.empty())
                             ++count;
-            text += "\nEarn all " + std::to_string(count) + " challenge achievements on one character for " + AchievementWithTitle(masterId) + ".";
+            std::vector<std::string> masterRewards = { AchievementWithTitle(masterId) };
+            if (sChallengeModes->masterGoldReward)
+                masterRewards.push_back(FormatGold(sChallengeModes->masterGoldReward));
+            for (std::string const& group : sChallengeModes->masterTcgCodeRewards)
+                masterRewards.push_back("a redemption code for " + TcgItemName(group));
+            text += "\n\nEarn all " + std::to_string(count) + " challenge achievements on one character for " + JoinList(masterRewards) + ".";
         }
         return text;
     }

@@ -65,18 +65,20 @@ ChallengeModes.RewardMail.Sender = 16128
 
 #    ChallengeModes.Master.AchievementId
 #    ChallengeModes.Master.TcgCodeRewards
+#    ChallengeModes.Master.GoldReward
 #    ChallengeModes.Master.RewardMail.Subject
 #    ChallengeModes.Master.RewardMail.Body
-#        Description: When a player-made character completes the achievement AchievementId (for example a meta achievement over the challenge achievements), it gets one reward mail from RewardMail.Sender with one redemption code per key in TcgCodeRewards (space or comma separated). Sent once per character (flag in character_settings, source mod-tofu-challenge-rewards, index 0), never to random or addclass bots. Needs ChallengeModes.TcgCodes.Enable = 1.
+#        Description: When a player-made character completes the achievement AchievementId (for example a meta achievement over the challenge achievements), it gets one reward mail from RewardMail.Sender with GoldReward copper attached and one redemption code per key in TcgCodeRewards (space or comma separated); it is sent when it has gold or at least one code. Sent once per character (flag in character_settings, source mod-tofu-challenge-rewards, index 0), never to random or addclass bots. Codes need ChallengeModes.TcgCodes.Enable = 1.
 #            If another module copies the achievement to alts (for example mod-account-bound), each player-made alt that receives it also gets the mail once.
 #            Body placeholder: {CODES}, as in <Challenge>.RewardMail.Body. Write \n for a line break.
-#        Default:     AchievementId 0 (off), TcgCodeRewards "", Subject "Master of Challenges", Body "Congratulations on mastering every challenge.{CODES}"
+#        Default:     AchievementId 0 (off), TcgCodeRewards "", GoldReward 0, Subject "Master of Challenges", Body "Congratulations on mastering every challenge.\n\n{CODES}"
 #
 
 ChallengeModes.Master.AchievementId = 60005
-ChallengeModes.Master.TcgCodeRewards = "TCG_SPECTRAL_TIGER_CUB"
+ChallengeModes.Master.TcgCodeRewards = ""
+ChallengeModes.Master.GoldReward = 100000000
 ChallengeModes.Master.RewardMail.Subject = "Master of Challenges"
-ChallengeModes.Master.RewardMail.Body = "You have mastered every challenge this world could set before you. There are not many in Azeroth who can say the same, and fewer still who would try.\n\nThe Kirin Tor have set aside something special for you.{CODES}\n\nRhonin"
+ChallengeModes.Master.RewardMail.Body = "Champion,\n\nHardcore, Self Crafted, Green Quality, One Rate, and Quest Only: every challenge this world could set before you, and you met them all on a single life. No one in the memory of Dalaran has done the same.\n\nYou now stand among the leaders of Azeroth, and from this day all will know you as such. The Kirin Tor have set aside 10,000 gold in your honor. Spend it as a leader would.\n\nRhonin"
 
 #
 #    The following challenge modes are available:
@@ -123,10 +125,10 @@ ChallengeModes.Master.RewardMail.Body = "You have mastered every challenge this 
 #        REWARD_GROUP is a key from mod-tcg-vendors (list them with: python tools/generate_codes.py --list-groups). A key unknown to this module is logged as a warning at startup but still issued.
 #        Example: <Challenge>.TcgCodeRewards = "80 TCG_SPECTRAL_TIGER"
 #    <Challenge>.RewardMail.Subject = "{MODE} reward"
-#    <Challenge>.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+#    <Challenge>.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.\n\n{CODES}"
 #        The mail sent for a level that has GoldRewards, ItemRewards, or TcgCodeRewards: one mail per challenge and level from ChallengeModes.RewardMail.Sender, with the gold and items attached and the codes in the body.
 #        Placeholders: {MODE} (challenge name), {LEVEL}, and {CODES} (body only: for each code the item name, the code, and the TCG vendor NPCs that list the item; empty when the level has no codes).
-#        Write \n for a line break. If the body has no {CODES}, the codes are added at the end, so a code is never left out.
+#        Write \n for a line break. Put {CODES} on its own line (\n\n{CODES}\n\n); it starts with "Your redemption code:". When the level has no code, {CODES} and the blank line before it are removed. If the body has no {CODES}, the codes are added at the end after a blank line, so a code is never left out.
 #
 #    The shrine lists each challenge's rewards from these keys (titles, talent points, gold, items, redemption codes, and achievements, by level) on the second confirmation, so a conf change shows there after a restart or config reload.
 #    Levels are rewarded even when a level is skipped (for example with a Level-Up Token or a GM command).
@@ -136,15 +138,15 @@ ChallengeModes.Master.RewardMail.Body = "You have mastered every challenge this 
 Hardcore.Enable = 1
 Hardcore.TitleRewards = ""
 Hardcore.XPMultiplier = 1
-Hardcore.TalentRewards = ""
-Hardcore.ItemRewards = ""
+Hardcore.TalentRewards = "80 7"
+Hardcore.ItemRewards = "80 54218 5, 80 50301 7"
 Hardcore.ItemRewardAmount = 1
 Hardcore.GoldRewards = ""
 Hardcore.DisableLevel = 80
 Hardcore.AchievementReward = "80 60000"
 Hardcore.TcgCodeRewards = "80 PROMO_LIL_PHYLACTERY"
-Hardcore.RewardMail.Subject = "The {MODE} challenge"
-Hardcore.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
+Hardcore.RewardMail.Subject = "The Hardcore challenge"
+Hardcore.RewardMail.Body = "Champion,\n\nWord has reached the Violet Citadel that you climbed from your first steps to the height of your power without falling once. Not a single death. I have known archmages who could not claim as much.\n\nThe Kirin Tor have recorded your deed, and from this day you may call yourself the Unfallen. The strength you earned is already yours. The rest of our thanks is enclosed: gift boxes, pet boxes, and a small companion who knows a thing or two about cheating death.\n\n{CODES}\n\nStay unfallen.\n\nRhonin"
 
 #    Hardcore.BlockedSpells
 #        Description: Spell IDs a Hardcore character cannot cast because they kill the caster. Space or comma separated.
@@ -156,15 +158,15 @@ Hardcore.BlockedSpells = "19752"
 SelfCrafted.Enable = 1
 SelfCrafted.TitleRewards = ""
 SelfCrafted.XPMultiplier = 1
-SelfCrafted.TalentRewards = ""
-SelfCrafted.ItemRewards = ""
+SelfCrafted.TalentRewards = "80 5"
+SelfCrafted.ItemRewards = "80 54218 3, 80 50301 5"
 SelfCrafted.ItemRewardAmount = 1
 SelfCrafted.GoldRewards = ""
 SelfCrafted.DisableLevel = 80
 SelfCrafted.AchievementReward = "80 60001"
-SelfCrafted.TcgCodeRewards = "80 PROMO_WARBOT_KEY"
-SelfCrafted.RewardMail.Subject = "The {MODE} challenge"
-SelfCrafted.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
+SelfCrafted.TcgCodeRewards = "80 PROMO_LIL_XT"
+SelfCrafted.RewardMail.Subject = "The Self Crafted challenge"
+SelfCrafted.RewardMail.Body = "Champion,\n\nEvery blade, buckle, and stitch you wore on the road to your full strength was made by your own hands. The artisans of Dalaran speak of little else.\n\nFrom this day you are the Self-Founded. Enclosed are gift boxes, pet boxes, and a little mechanical friend to keep your workshop company. I am told he only breaks things occasionally.\n\n{CODES}\n\nRhonin"
 
 #    SelfCrafted.ExemptItems
 #        Description: Extra item IDs Self Crafted characters may equip, on top of the built-in exemptions. Space or comma separated.
@@ -176,15 +178,15 @@ SelfCrafted.ExemptItems = ""
 ItemQualityLevel.Enable = 1
 ItemQualityLevel.TitleRewards = ""
 ItemQualityLevel.XPMultiplier = 1
-ItemQualityLevel.TalentRewards = ""
-ItemQualityLevel.ItemRewards = ""
+ItemQualityLevel.TalentRewards = "80 5"
+ItemQualityLevel.ItemRewards = "80 54218 3, 80 50301 5"
 ItemQualityLevel.ItemRewardAmount = 1
 ItemQualityLevel.GoldRewards = ""
 ItemQualityLevel.DisableLevel = 80
 ItemQualityLevel.AchievementReward = "80 60002"
-ItemQualityLevel.TcgCodeRewards = "80 PROMO_LIL_XT"
-ItemQualityLevel.RewardMail.Subject = "The {MODE} challenge"
-ItemQualityLevel.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
+ItemQualityLevel.TcgCodeRewards = "80 TCG_SPECTRAL_TIGER_CUB"
+ItemQualityLevel.RewardMail.Subject = "The Green Quality challenge"
+ItemQualityLevel.RewardMail.Body = "Champion,\n\nYou turned your back on the gleam of rare and epic treasures and reached your full strength in humble green. Many claim gear makes the hero. You have proven them wrong.\n\nFrom this day you are the Iron-Priced. Enclosed are gift boxes, pet boxes, and a spectral cub. A rare thing, and you have more than earned it.\n\n{CODES}\n\nRhonin"
 
 #    ItemQualityLevel.MaxQuality
 #        Description: Highest item quality Green Quality characters may equip. Bags and quivers are exempt.
@@ -197,41 +199,41 @@ ItemQualityLevel.MaxQuality = 2
 OneRate.Enable = 1
 OneRate.TitleRewards = ""
 OneRate.XPMultiplier = 1
-OneRate.TalentRewards = ""
-OneRate.ItemRewards = ""
+OneRate.TalentRewards = "80 2"
+OneRate.ItemRewards = "80 54218 1, 80 50301 3"
 OneRate.ItemRewardAmount = 1
 OneRate.GoldRewards = ""
 OneRate.DisableLevel = 80
 OneRate.AchievementReward = "80 60003"
-OneRate.TcgCodeRewards = "80 PROMO_GRYPHON_HATCHLING"
-OneRate.RewardMail.Subject = "The {MODE} challenge"
-OneRate.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
+OneRate.TcgCodeRewards = "80 PROMO_WARBOT_KEY"
+OneRate.RewardMail.Subject = "The One Rate challenge"
+OneRate.RewardMail.Body = "Champion,\n\nNo shortcuts and no haste. You walked the long road at the world's own pace, and you walked it to the end. Patience is the rarest virtue in Azeroth, and you have it in abundance.\n\nEnclosed are gift boxes, pet boxes, and a small warbot to keep you company on whatever road comes next.\n\n{CODES}\n\nRhonin"
 
 QuestXpOnly.Enable = 1
 QuestXpOnly.TitleRewards = ""
 QuestXpOnly.XPMultiplier = 1
-QuestXpOnly.TalentRewards = ""
-QuestXpOnly.ItemRewards = ""
+QuestXpOnly.TalentRewards = "80 2"
+QuestXpOnly.ItemRewards = "80 54218 1, 80 50301 3"
 QuestXpOnly.ItemRewardAmount = 1
 QuestXpOnly.GoldRewards = ""
 QuestXpOnly.DisableLevel = 80
 QuestXpOnly.AchievementReward = "80 60004"
-QuestXpOnly.TcgCodeRewards = "80 PROMO_WIND_RIDER_CUB"
-QuestXpOnly.RewardMail.Subject = "The {MODE} challenge"
-QuestXpOnly.RewardMail.Body = "Word has reached Dalaran that you have seen the {MODE} challenge through to the end. Few have the discipline for such a trial, and the Kirin Tor take note of those who do.\n\nPlease accept a small token of our esteem.{CODES}\n\nRhonin"
+QuestXpOnly.TcgCodeRewards = "80 PROMO_GRYPHON_HATCHLING, 80 PROMO_WIND_RIDER_CUB"
+QuestXpOnly.RewardMail.Subject = "The Quest Only challenge"
+QuestXpOnly.RewardMail.Body = "Champion,\n\nYou earned your power not by the sword but by the road: every errand run, every letter carried, and every soul helped along the way. Half of Azeroth owes you a favor.\n\nFrom this day you are the Globetrotter. Enclosed are gift boxes, pet boxes, and a pair of hatchlings, one gryphon and one wind rider, so that both banners may remember your kindness.\n\n{CODES}\n\nRhonin"
 
 Progression.Enable = 1
 Progression.TitleRewards = ""
 Progression.XPMultiplier = 1
 Progression.TalentRewards = ""
-Progression.ItemRewards = "80 701001 1"
+Progression.ItemRewards = "80 701001 1, 80 54218 5, 80 50301 5"
 Progression.ItemRewardAmount = 1
-Progression.GoldRewards = "80 150000000"
+Progression.GoldRewards = "80 50000000"
 Progression.DisableLevel = 0
 Progression.AchievementReward = ""
 Progression.TcgCodeRewards = ""
-Progression.RewardMail.Subject = "{MODE} reward"
-Progression.RewardMail.Body = "Congratulations on reaching level {LEVEL} on the {MODE} challenge.{CODES}"
+Progression.RewardMail.Subject = "The Progression challenge"
+Progression.RewardMail.Body = "Champion,\n\nYou have watched Azeroth grow around you, age by age, from the old kingdoms to the frozen north. You reached the height of your power while the world itself was still unfolding.\n\nThe Kirin Tor send 5,000 gold, five gift boxes, five pet boxes, and a level-up token. The token is of no use to you now, for you have nothing left to grow into. In the hands of another hero on a similar path, though, it could be a powerful thing indeed.\n\nRhonin"
 
 SemiHardcore.Enable = 0
 SemiHardcore.TitleRewards = ""

@@ -84,6 +84,7 @@ public:
     uint32 rewardMailSender = 16128; // ChallengeModes.RewardMail.Sender: creature entry the reward mails come from (16128 Rhonin); 0 = the player, on GM stationery
     uint32 masterAchievementId = 0; // ChallengeModes.Master.AchievementId: completing it sends the master reward mail (0 = off)
     std::vector<std::string> masterTcgCodeRewards; // ChallengeModes.Master.TcgCodeRewards: reward_group keys, one code each
+    uint32 masterGoldReward = 0; // ChallengeModes.Master.GoldReward: copper in the master reward mail
     std::string masterMailSubject;
     std::string masterMailBody; // placeholder {CODES}
     std::array<ChallengeDefinition, CHALLENGE_MODE_COUNT> definitions;
