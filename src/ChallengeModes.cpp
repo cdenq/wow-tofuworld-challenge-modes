@@ -875,6 +875,7 @@ private:
 
         sChallengeModes->groupRestriction = sConfigMgr->GetOption<bool>("ChallengeModes.GroupRestriction", true);
         sChallengeModes->enforceEquipmentEnabled = sConfigMgr->GetOption<bool>("ChallengeModes.EnforceEquipment", true);
+        sChallengeModes->blockDeathKnightSkip = sConfigMgr->GetOption<bool>("ChallengeModes.BlockDeathKnightSkip", true);
         sChallengeModes->itemQualityMax = sConfigMgr->GetOption<uint32>("ItemQualityLevel.MaxQuality", ITEM_QUALITY_UNCOMMON);
         sChallengeModes->tcgCodesConfigured = sConfigMgr->GetOption<bool>("ChallengeModes.TcgCodes.Enable", false);
         sChallengeModes->tcgCodesTable = sConfigMgr->GetOption<std::string>("ChallengeModes.TcgCodes.Table", "account_tcg_codes");
@@ -1447,6 +1448,38 @@ public:
     }
 };
 
+// Death Knight skip block: a character on a challenge (other than Progression) cannot use mod-skip-dk-starting-area's skip at the Lich King. GM accounts are exempt.
+// The skip module's creature script is "npc_ac_skip_lich". Its first option is action 1; the Tofu fork (wow-tofuworld-skip-dk) follows it with cloak and weapon menus on actions 1100 to 1299, which are blocked too.
+// CanCreatureGossipSelect runs before the creature's own script, and returning true stops the selection there. Quests from the Lich King are not gossip selections and are unaffected.
+class ChallengeModes_DkSkipBlock : public AllCreatureScript
+{
+public:
+    ChallengeModes_DkSkipBlock() : AllCreatureScript("ChallengeModes_DkSkipBlock") {}
+
+    static bool IsSkipAction(uint32 action)
+    {
+        return action == 1 || (action >= GOSSIP_ACTION_INFO_DEF + 100 && action < GOSSIP_ACTION_INFO_DEF + 300);
+    }
+
+    bool CanCreatureGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action) override
+    {
+        if (!sChallengeModes->enabled() || !sChallengeModes->blockDeathKnightSkip || !player || !creature)
+            return false;
+        if (sender != GOSSIP_SENDER_MAIN || !IsSkipAction(action))
+            return false;
+        if (creature->GetScriptName() != "npc_ac_skip_lich")
+            return false;
+        if (!player->GetSession() || player->GetSession()->GetSecurity() > SEC_PLAYER)
+            return false;
+        if (!sChallengeModes->hasRestrictingChallenge(player))
+            return false;
+
+        CloseGossipMenuFor(player);
+        SendSys(player, "You are on a challenge and cannot skip the Death Knight starting zone.");
+        return true;
+    }
+};
+
 class gobject_challenge_modes : public GameObjectScript
 {
 private:
@@ -1855,4 +1888,5 @@ void AddSC_mod_challenge_modes()
     new ChallengeModes_PlayerRules();
     new ChallengeModes_GroupScript();
     new ChallengeModes_SpellScript();
+    new ChallengeModes_DkSkipBlock();
 }

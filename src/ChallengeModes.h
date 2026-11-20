@@ -77,6 +77,7 @@ public:
     bool challengesEnabled = false;
     bool groupRestriction = true;
     bool enforceEquipmentEnabled = true;
+    bool blockDeathKnightSkip = true; // ChallengeModes.BlockDeathKnightSkip: challenge characters cannot use mod-skip-dk-starting-area's skip at the Lich King
     uint32 itemQualityMax = ITEM_QUALITY_UNCOMMON;
     bool tcgCodesConfigured = false; // ChallengeModes.TcgCodes.Enable
     bool tcgCodesAvailable = false; // the codes table was found at startup

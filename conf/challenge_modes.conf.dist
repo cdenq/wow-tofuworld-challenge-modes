@@ -36,6 +36,15 @@ ChallengeModes.GroupRestriction = 1
 
 ChallengeModes.EnforceEquipment = 1
 
+#    ChallengeModes.BlockDeathKnightSkip
+#        Description: Characters on a challenge other than Progression cannot skip the Death Knight starting zone at the Lich King (mod-skip-dk-starting-area, including the Tofu fork's cloak and weapon menus). GM accounts are exempt.
+#            Also set Skip.Deathknight.Starter.Enable = 0 in skip_dk_module.conf, or every non-GM Death Knight is skipped to level 58 at first login, before it can reach the shrine.
+#        Default:     1 - Enabled
+#                     0 - Disabled
+#
+
+ChallengeModes.BlockDeathKnightSkip = 1
+
 #    ChallengeModes.TcgCodes.Enable
 #        Description: Issue mod-tcg-vendors redemption codes as level rewards (<Challenge>.TcgCodeRewards).
 #            Each code is written to the codes table and put in the body of the challenge's reward mail, in the same database transaction.
