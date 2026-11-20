@@ -3,6 +3,7 @@
  */
 
 #include "ChallengeModes.h"
+#include "AchievementMgr.h"
 #include "Corpse.h"
 #include "DBCStores.h"
 #include "Group.h"
@@ -1524,12 +1525,10 @@ public:
         return text;
     }
 
-    static std::string TitleName(uint32 titleId)
+    // "%s, Lord of Azeroth" -> "Lord of Azeroth"
+    static std::string CleanTitleText(char const* text)
     {
-        CharTitlesEntry const* entry = sCharTitlesStore.LookupEntry(titleId);
-        if (!entry || !entry->nameMale[0])
-            return "title " + std::to_string(titleId);
-        std::string name = entry->nameMale[0];
+        std::string name = text ? text : "";
         size_t const pos = name.find("%s");
         if (pos != std::string::npos)
             name.erase(pos, 2);
@@ -1537,6 +1536,22 @@ public:
             name.erase(0, 1);
         while (!name.empty() && (name.back() == ' ' || name.back() == ','))
             name.pop_back();
+        return name;
+    }
+
+    // The title as players read it; "Lord of Azeroth / Lady of Azeroth" when the female text differs.
+    static std::string TitleName(uint32 titleId)
+    {
+        CharTitlesEntry const* entry = sCharTitlesStore.LookupEntry(titleId);
+        if (!entry || !entry->nameMale[0] || !entry->nameMale[0][0])
+            return "title " + std::to_string(titleId);
+        std::string name = CleanTitleText(entry->nameMale[0]);
+        if (entry->nameFemale[0] && entry->nameFemale[0][0])
+        {
+            std::string const female = CleanTitleText(entry->nameFemale[0]);
+            if (!female.empty() && female != name)
+                name += " / " + female;
+        }
         return name;
     }
 
@@ -1550,6 +1565,23 @@ public:
     {
         AchievementEntry const* entry = sAchievementStore.LookupEntry(achievementId);
         return entry && entry->name[0] ? std::string(entry->name[0]) : "achievement " + std::to_string(achievementId);
+    }
+
+    // "the achievement Hardcore Challenge (title: the Unfallen)": the title comes from the core's achievement_reward table (TitleA for Alliance, TitleH for Horde).
+    static std::string AchievementWithTitle(uint32 achievementId)
+    {
+        std::string text = "the achievement " + AchievementName(achievementId);
+        AchievementEntry const* entry = sAchievementStore.LookupEntry(achievementId);
+        AchievementReward const* reward = entry ? sAchievementMgr->GetAchievementReward(entry) : nullptr;
+        if (!reward)
+            return text;
+        uint32 const alliance = reward->titleId[0];
+        uint32 const horde = reward->titleId[1];
+        if (alliance && horde && alliance != horde)
+            text += " (title: " + TitleName(alliance) + " for the Alliance, " + TitleName(horde) + " for the Horde)";
+        else if (alliance || horde)
+            text += " (title: " + TitleName(alliance ? alliance : horde) + ")";
+        return text;
     }
 
     // "TCG_SPECTRAL_TIGER" -> "Spectral Tiger"
@@ -1601,7 +1633,7 @@ public:
                 byLevel[level].push_back("a redemption code for " + TcgGroupName(group));
         for (auto const& [level, achievements] : def->achievementRewards)
             for (uint32 achievementId : achievements)
-                byLevel[level].push_back("the achievement " + AchievementName(achievementId));
+                byLevel[level].push_back(AchievementWithTitle(achievementId));
 
         std::string text = sChallengeModes->getDisplayName(setting) + " rewards:";
         if (byLevel.empty())
@@ -1614,6 +1646,19 @@ public:
             text += ".";
         }
         text += "\nGold and items arrive by mail.";
+
+        // The master achievement (ChallengeModes.Master.AchievementId), shown on every challenge that grants an achievement itself.
+        uint32 const masterId = sChallengeModes->masterAchievementId;
+        if (masterId && !def->achievementRewards.empty() && sAchievementStore.LookupEntry(masterId))
+        {
+            uint32 count = 0;
+            for (ChallengeModeSettings other : ALL_CHALLENGES)
+                if (sChallengeModes->challengeEnabled(other))
+                    if (ChallengeDefinition const* otherDef = sChallengeModes->getDefinition(other))
+                        if (!otherDef->achievementRewards.empty())
+                            ++count;
+            text += "\nEarn all " + std::to_string(count) + " challenge achievements on one character for " + AchievementWithTitle(masterId) + ".";
+        }
         return text;
     }
 
